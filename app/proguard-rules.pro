@@ -1,0 +1,7 @@
+-dontwarn org.bouncycastle.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
+-keepattributes *Annotation*, InnerClasses
+-keepclassmembers class app.parity.**$$serializer { *; }
+-keepclassmembers class app.parity.** { *** Companion; }
+-keepclasseswithmembers class app.parity.** { kotlinx.serialization.KSerializer serializer(...); }
