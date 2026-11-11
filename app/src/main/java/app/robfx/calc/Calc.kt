@@ -19,8 +19,19 @@ object Calc {
     private fun isOp(c: Char) = c in ops
     private fun currentNumber(expr: String) = expr.takeLastWhile { !isOp(it) }
 
+    /** What "clear" goes back to: a converter is most useful showing "1 unit", not an empty zero. */
+    const val DEFAULT = "1"
+
+    private fun isEntryKey(k: String) = k == "." || k == "00" || (k.length == 1 && k[0].isDigit())
+
+    /**
+     * Like [key], for an entry that is still the untouched default (just cleared, or never edited): typing a
+     * number replaces the "1" rather than extending it into "15", while an operator carries on from it ("1" then "×" then "5").
+     */
+    fun keyOnDefault(key: String): String = if (isEntryKey(key)) key("", key) else key(DEFAULT, key)
+
     fun key(expr: String, key: String): String = when (key) {
-        "C" -> ""
+        "C" -> DEFAULT
         "<" -> expr.dropLast(1)
         "=" -> evaluate(expr)?.let(::plain) ?: expr
         "." -> {

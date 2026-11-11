@@ -19,8 +19,8 @@ android {
         applicationId = "app.robfx"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
     }
 
     signingConfigs {
@@ -83,9 +83,9 @@ dependencies {
 
 // Robolectric normally downloads its Android jar itself; ROBOLECTRIC_DEPS points it at a pre-fetched folder (offline/CI-proxy friendly).
 tasks.withType<Test>().configureEach {
+    systemProperty("roborazzi.test.record", "true")
     System.getenv("ROBOLECTRIC_DEPS")?.let {
         systemProperty("robolectric.offline", "true")
-        systemProperty("roborazzi.test.record", "true")
         systemProperty("robolectric.dependency.dir", it)
     }
 }

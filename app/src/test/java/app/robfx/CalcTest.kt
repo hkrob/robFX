@@ -55,7 +55,15 @@ class CalcTest {
 
     @Test fun backspaceAndClear() {
         assertEquals("1", type("1", "2", "<"))
-        assertEquals("", type("1", "2", "C"))
+        assertEquals("1", type("1", "2", "C"))
+    }
+
+    @Test fun clearGoesBackToOneAndTheNextNumberReplacesIt() {
+        assertEquals("1", Calc.key("12\u00D73", "C"))
+        assertEquals("5", Calc.keyOnDefault("5"))
+        assertEquals("0.", Calc.keyOnDefault("."))
+        assertEquals("1\u00D7", Calc.keyOnDefault("*"))
+        assertEquals("0", Calc.keyOnDefault("00"))
     }
 
     @Test fun prettyGroupsAndSpaces() {

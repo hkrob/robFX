@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.robfx.data.source.json
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -20,6 +21,7 @@ data class Settings(
     val haptics: Boolean = true,
     val range: Range = Range.M1,
     val recents: List<String> = emptyList(),
+    val autoUpdate: Boolean = true,
 )
 
 @Serializable
@@ -58,6 +60,9 @@ class SettingsStore(private val context: Context) {
         val recents = stringPreferencesKey("recents")
         val alerts = stringPreferencesKey("alerts")
         val watch = stringPreferencesKey("watch")
+        val autoUpdate = booleanPreferencesKey("auto_update")
+        val lastUpdateCheck = androidx.datastore.preferences.core.longPreferencesKey("update_checked_at")
+        val lastNotified = stringPreferencesKey("update_notified")
     }
 
     private val defaults = Currencies.localPair()
@@ -72,6 +77,7 @@ class SettingsStore(private val context: Context) {
             haptics = p[K.haptics] ?: true,
             range = p[K.range]?.let { runCatching { Range.valueOf(it) }.getOrNull() } ?: Range.M1,
             recents = p[K.recents]?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
+            autoUpdate = p[K.autoUpdate] ?: true,
         )
     }
 
@@ -102,6 +108,11 @@ class SettingsStore(private val context: Context) {
     suspend fun setExpr(v: String) = context.dataStore.edit { it[K.expr] = v }
     suspend fun setTheme(v: ThemeMode) = context.dataStore.edit { it[K.theme] = v.name }
     suspend fun setDynamic(v: Boolean) = context.dataStore.edit { it[K.dynamic] = v }
+    suspend fun setAutoUpdate(v: Boolean) = context.dataStore.edit { it[K.autoUpdate] = v }
+    suspend fun lastUpdateCheck(): Long = context.dataStore.data.map { it[K.lastUpdateCheck] ?: 0L }.first()
+    suspend fun setLastUpdateCheck(v: Long) = context.dataStore.edit { it[K.lastUpdateCheck] = v }
+    suspend fun lastNotifiedVersion(): String? = context.dataStore.data.map { it[K.lastNotified] }.first()
+    suspend fun setLastNotifiedVersion(v: String) = context.dataStore.edit { it[K.lastNotified] = v }
     suspend fun setHaptics(v: Boolean) = context.dataStore.edit { it[K.haptics] = v }
     suspend fun setRange(v: Range) = context.dataStore.edit { it[K.range] = v.name }
 

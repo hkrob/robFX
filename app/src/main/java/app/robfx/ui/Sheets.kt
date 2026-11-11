@@ -55,6 +55,7 @@ import app.robfx.data.Alert
 import app.robfx.data.Currencies
 import app.robfx.data.Currency
 import app.robfx.data.ThemeMode
+import app.robfx.update.UpdateState
 import app.robfx.ui.theme.Pal
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -188,6 +189,10 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
             item { Header("Rate alerts") }
             item { NavRow("Manage alerts", "Get notified when a rate crosses a target", onAlerts) }
 
+            item { Header("Updates") }
+            item { UpdateRow(vm) }
+            item { ToggleRow("Update automatically", "Check every few hours and download new versions. Android still asks you to confirm the install.", s.autoUpdate, vm::setAutoUpdate) }
+
             item { Header("Data sources") }
             items(sources, key = { it.name }) { src ->
                 val perSource = pair?.perSource?.get(src.name)
@@ -219,11 +224,56 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
                 ) { Text(if (refreshing) "Refreshing…" else "Refresh now", color = pal.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
             }
             item {
-                Text("robFX 1.0.2 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
+                Text("robFX 1.0.3 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
             }
         }
     }
 }
+
+@Composable
+private fun UpdateRow(vm: ConverterViewModel) {
+    val pal = Pal.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val state by vm.updateState.collectAsState()
+
+    val (status, label, enabled, action) = when (val u = state) {
+        UpdateState.Idle -> Quad("Not checked yet", "Check for updates", true) { vm.checkForUpdate() }
+        UpdateState.Checking -> Quad("Checking\u2026", "Checking\u2026", false) {}
+        UpdateState.UpToDate -> Quad("You're on the latest version", "Check again", true) { vm.checkForUpdate() }
+        is UpdateState.Available -> Quad("Version ${u.info.version} is available", "Update to ${u.info.version}", true) { vm.installUpdate(u.info) }
+        is UpdateState.NeedsPermission -> Quad("Allow robFX to install updates, then come back", "Allow installs", true) {
+            ctx.startActivity(
+                android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${ctx.packageName}"))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+        is UpdateState.Downloading -> Quad("Downloading ${(u.progress * 100).toInt()}%", "Downloading\u2026", false) {}
+        is UpdateState.Installing -> Quad("Installing ${u.info.version}\u2026", "Installing\u2026", false) {}
+        is UpdateState.Failed -> Quad(u.message, if (u.info != null) "Try again" else "Check again", true) {
+            u.info?.let { vm.installUpdate(it) } ?: vm.checkForUpdate()
+        }
+    }
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
+        Text("robFX ${vm.currentVersion}", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(status, color = if (state is UpdateState.Failed) pal.negative else pal.subtext, fontSize = 13.sp)
+        (state as? UpdateState.Available)?.info?.notes?.takeIf { it.isNotBlank() }?.let {
+            Text(it.lines().take(6).joinToString("\n"), color = pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+        }
+        (state as? UpdateState.Downloading)?.let {
+            Box(Modifier.padding(top = 10.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(pal.key)) {
+                Box(Modifier.fillMaxWidth(it.progress.coerceIn(0f, 1f)).height(4.dp).background(pal.accent))
+            }
+        }
+        val primary = state is UpdateState.Available || state is UpdateState.NeedsPermission || (state as? UpdateState.Failed)?.info != null
+        Box(
+            Modifier.padding(top = 12.dp).clip(RoundedCornerShape(50)).background(if (primary) pal.accent else pal.key)
+                .clickable(enabled = enabled, onClick = action).padding(horizontal = 20.dp, vertical = 12.dp),
+        ) { Text(label, color = if (primary) pal.onAccent else if (enabled) pal.accent else pal.subtext, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+    }
+}
+
+private data class Quad(val status: String, val label: String, val enabled: Boolean, val action: () -> Unit)
 
 @Composable
 private fun ToggleRow(title: String, sub: String, checked: Boolean, onChange: (Boolean) -> Unit) {

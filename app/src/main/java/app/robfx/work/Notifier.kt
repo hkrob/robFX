@@ -18,12 +18,17 @@ import app.robfx.data.Alert
 
 object Notifier {
     private const val CHANNEL = "alerts"
+    private const val UPDATES = "updates"
+    private const val UPDATE_ID = 7001
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
             val nm = context.getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL, context.getString(R.string.channel_alerts), NotificationManager.IMPORTANCE_DEFAULT),
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(UPDATES, context.getString(R.string.channel_updates), NotificationManager.IMPORTANCE_LOW),
             )
         }
     }
@@ -48,5 +53,34 @@ object Notifier {
             .setAutoCancel(true)
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(alert.id.toInt(), n) }
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    fun updateAvailable(context: Context, version: String) {
+        if (!canPost(context)) return
+        val open = PendingIntent.getActivity(context, UPDATE_ID, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val n = NotificationCompat.Builder(context, UPDATES)
+            .setSmallIcon(R.drawable.ic_stat_alert)
+            .setContentTitle("robFX $version is available")
+            .setContentText("Open Settings to install it")
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(UPDATE_ID, n) }
+    }
+
+    /** The system's own install dialog, reached from a notification when we aren't on screen to show it. */
+    @android.annotation.SuppressLint("MissingPermission")
+    fun confirmInstall(context: Context, confirm: Intent, version: String?) {
+        if (!canPost(context)) return
+        val go = PendingIntent.getActivity(context, UPDATE_ID + 1, confirm, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val n = NotificationCompat.Builder(context, UPDATES)
+            .setSmallIcon(R.drawable.ic_stat_alert)
+            .setContentTitle("robFX ${version ?: "update"} is ready")
+            .setContentText("Tap to install")
+            .setContentIntent(go)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(UPDATE_ID, n) }
     }
 }

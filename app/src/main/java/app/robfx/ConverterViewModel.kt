@@ -12,6 +12,8 @@ import app.robfx.data.Settings
 import app.robfx.data.SourceStatus
 import app.robfx.data.ThemeMode
 import app.robfx.data.WatchPair
+import app.robfx.update.UpdateInfo
+import app.robfx.update.UpdateState
 import app.robfx.data.defaultWatchlist
 import app.robfx.data.Currencies
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -59,6 +61,9 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     private val _sheet = MutableStateFlow(Sheet.None)
     val sheet: StateFlow<Sheet> = _sheet
 
+    val updateState: StateFlow<UpdateState> = c.updater.state
+    val currentVersion: String = c.updater.currentVersion
+
     private val _screen = MutableStateFlow(Screen.Home)
     val screen: StateFlow<Screen> = _screen
 
@@ -90,6 +95,8 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
 
     init {
         refreshIfStale()
+        // At most every three hours on launch; the background worker covers the rest.
+        viewModelScope.launch { if (System.currentTimeMillis() - c.settings.lastUpdateCheck() > 3 * 3_600_000L) c.updater.check() }
         viewModelScope.launch { watchlist.collect { loadSparks(it) } }
         viewModelScope.launch {
             combine(settings.map { it.from to it.to }.distinctUntilChanged(), settings.map { it.range }.distinctUntilChanged()) { p, r -> p to r }
@@ -134,8 +141,12 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
         viewModelScope.launch { c.rates.refresh() }
     }
 
+    // True while the entry is the default "1" that Clear restores: the next digit replaces it instead of extending it.
+    private var onDefault = false
+
     fun key(k: String) {
-        val next = Calc.key(_expr.value, k)
+        val next = if (onDefault && k != "C" && k != "<" && k != "=") Calc.keyOnDefault(k) else Calc.key(_expr.value, k)
+        onDefault = k == "C"
         _expr.value = next
         viewModelScope.launch { c.settings.setExpr(next) }
     }
@@ -208,6 +219,9 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
 
     fun setTheme(m: ThemeMode) = viewModelScope.launch { c.settings.setTheme(m) }
     fun setDynamic(v: Boolean) = viewModelScope.launch { c.settings.setDynamic(v) }
+    fun checkForUpdate() { viewModelScope.launch { c.updater.check() } }
+    fun installUpdate(info: UpdateInfo) { viewModelScope.launch { c.updater.downloadAndInstall(info) } }
+    fun setAutoUpdate(v: Boolean) = viewModelScope.launch { c.settings.setAutoUpdate(v) }
     fun setHaptics(v: Boolean) = viewModelScope.launch { c.settings.setHaptics(v) }
 
     fun addAlert(above: Boolean, target: Double) {

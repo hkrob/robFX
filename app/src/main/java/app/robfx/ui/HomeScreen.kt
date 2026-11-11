@@ -63,6 +63,7 @@ data class HomeUi(
     val status: PairRate?,
     val editing: Boolean,
     val refreshing: Boolean,
+    val updateVersion: String? = null,
 )
 
 interface HomeActions {
@@ -97,6 +98,20 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
                 (ui.status?.let { "Updated ${timeOf(it.updatedAt)} · " } ?: "") + "Past week · tap a pair to convert",
                 color = pal.subtext, fontSize = 14.sp,
             )
+        }
+
+        ui.updateVersion?.let { v ->
+            Row(
+                Modifier.padding(horizontal = 24.dp, vertical = 6.dp).clip(RoundedCornerShape(50)).background(pal.key)
+                    .clickable { actions.sheet(Sheet.Settings) }.padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("robFX $v is available", color = pal.text, fontSize = 14.sp)
+                Spacer(Modifier.width(12.dp))
+                Box(Modifier.clip(RoundedCornerShape(50)).background(pal.accent).padding(horizontal = 14.dp, vertical = 6.dp)) {
+                    Text("Update", color = pal.onAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
         }
 
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 8.dp, bottom = 16.dp)) {

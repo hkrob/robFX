@@ -8,6 +8,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import app.robfx.work.Notifier
 import app.robfx.work.RatesWorker
+import app.robfx.work.UpdateWorker
 import java.util.concurrent.TimeUnit
 
 class RobFxApp : Application() {
@@ -23,6 +24,13 @@ class RobFxApp : Application() {
             "rates",
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<RatesWorker>(30, TimeUnit.MINUTES)
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .build(),
+        )
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "update",
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<UpdateWorker>(6, TimeUnit.HOURS)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build(),
         )

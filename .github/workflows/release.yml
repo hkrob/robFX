@@ -1,0 +1,108 @@
+name: Release
+
+# Publishes a signed APK as a GitHub release. The app's built-in updater reads the latest release,
+# so this is what "shipping an update" means.
+#
+#   1. Bump versionCode and versionName in app/build.gradle.kts, push to main.
+#   2. Actions -> Release -> Run workflow   (or push a tag that matches, e.g. v1.0.4)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  # SHA-256 of the signing certificate. A build signed by anything else would be refused by phones that
+  # already have robFX installed, so the job stops instead of publishing it.
+  EXPECTED_SIGNER: 9baf6701c1ece2451d07c0f8c19a45b5509e8538bed94e16ae7cb95fea9f0afe
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version
+        id: v
+        run: |
+          VERSION=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)
+          [ -n "$VERSION" ] || { echo "::error::Could not read versionName from app/build.gradle.kts"; exit 1; }
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match versionName ${VERSION}"; exit 1
+          fi
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Release v${VERSION} already exists. Bump versionName/versionCode first."; exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Check signing secrets
+        run: |
+          for s in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            [ -n "${!s}" ] || { echo "::error::Repository secret $s is not set (Settings -> Secrets and variables -> Actions)"; exit 1; }
+          done
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Android SDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Write signing config
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/robfx.keystore"
+          {
+            echo "storeFile=$RUNNER_TEMP/robfx.keystore"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Test and build the release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
+
+      - name: Verify the signature
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          OUT=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK")
+          echo "$OUT"
+          echo "$OUT" | grep -qi "certificate SHA-256 digest: ${EXPECTED_SIGNER}" \
+            || { echo "::error::APK is not signed with the expected key"; exit 1; }
+
+      - name: Name the artifacts
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "robFX-${{ steps.v.outputs.version }}.apk"
+          sha256sum "robFX-${{ steps.v.outputs.version }}.apk" > "robFX-${{ steps.v.outputs.version }}.apk.sha256"
+
+      - name: Publish the release
+        run: |
+          gh release create "v${{ steps.v.outputs.version }}" \
+            "robFX-${{ steps.v.outputs.version }}.apk" "robFX-${{ steps.v.outputs.version }}.apk.sha256" \
+            --title "robFX ${{ steps.v.outputs.version }}" \
+            --target "${GITHUB_SHA}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

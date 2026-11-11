@@ -25,6 +25,7 @@ import app.robfx.ui.HomeUi
 import app.robfx.ui.Sheets
 import app.robfx.data.WatchPair
 import app.robfx.ui.AppRoot
+import app.robfx.update.UpdateState
 import app.robfx.ui.theme.RobFxTheme
 import app.robfx.ui.theme.resolveDark
 import app.robfx.work.Notifier
@@ -57,7 +58,9 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-            LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshIfStale() }
+            LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshIfStale(); container.updater.recheckPermission() }
+            LifecycleEventEffect(Lifecycle.Event.ON_START) { container.updater.visible = true }
+            LifecycleEventEffect(Lifecycle.Event.ON_STOP) { container.updater.visible = false }
 
             RobFxTheme(settings.theme, settings.dynamicColor) {
                 val screen by vm.screen.collectAsState()
@@ -74,8 +77,10 @@ class MainActivity : ComponentActivity() {
                         val rows by vm.rows.collectAsState()
                         val refreshing by vm.refreshing.collectAsState()
                         val status = rows.firstNotNullOfOrNull { it.rate }
+                        val update by vm.updateState.collectAsState()
+                        val pending = (update as? UpdateState.Available)?.info?.version ?: (update as? UpdateState.NeedsPermission)?.info?.version
                         HomeContent(
-                            HomeUi(rows, status, editing, refreshing),
+                            HomeUi(rows, status, editing, refreshing, pending),
                             object : HomeActions {
                                 override fun open(w: WatchPair) = vm.openPair(w)
                                 override fun remove(w: WatchPair) = vm.removeWatch(w)

@@ -8,6 +8,7 @@ import app.robfx.data.source.ErApiSource
 import app.robfx.data.source.FawazSource
 import app.robfx.data.source.FrankfurterSource
 import app.robfx.data.source.Http
+import app.robfx.update.Updater
 
 /** Hand-rolled DI: three singletons don't justify a framework. */
 class AppContainer(context: Context) {
@@ -20,4 +21,5 @@ class AppContainer(context: Context) {
     val rates = RatesRepository(context, listOf(frankfurter, fawaz, erApi))
     // Only Frankfurter and Currency-API can do history; the ECB goes first because it's one request instead of ~28.
     val history = HistoryRepository(listOf(frankfurter, fawaz))
+    val updater = Updater(context.applicationContext, settings)
 }
