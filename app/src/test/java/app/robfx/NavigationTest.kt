@@ -84,6 +84,7 @@ class MarketsGesturesTest {
         override fun remove(w: app.robfx.data.WatchPair) { log += "remove ${w.key}" }
         override fun toggleEditing() { log += "toggle" }
         override fun startEditing() { log += "startEditing" }
+        override fun tapSort(s: WatchSort) { log += "sort $s" }
         override fun add() { log += "add" }
         override fun refresh() { log += "refresh" }
         override fun sheet(s: Sheet) { log += "sheet" }

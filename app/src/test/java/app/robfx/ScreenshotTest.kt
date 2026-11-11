@@ -74,6 +74,7 @@ class ScreenshotTest {
         override fun remove(w: WatchPair) {}
         override fun toggleEditing() {}
         override fun startEditing() {}
+        override fun tapSort(s: WatchSort) {}
         override fun add() {}
         override fun refresh() {}
         override fun sheet(s: Sheet) {}
@@ -83,7 +84,7 @@ class ScreenshotTest {
         HistoryPoint(LocalDate.of(2026, 11, 4).plusDays(i.toLong()), 1.0 + drift * i + 0.004 * sin(i * 1.3 + seed))
     }
 
-    private fun home(editing: Boolean) = HomeUi(
+    private fun home(editing: Boolean, sort: WatchSort = WatchSort.Custom, desc: Boolean = false) = HomeUi(
         rows = listOf(
             WatchRow(WatchPair("HKD", "USD"), PairRate(0.12747, emptyMap(), 0.0, Quality.Consensus, 0), spark(0.2, 0.0006).map { HistoryPoint(it.date, it.value * 0.1275) }),
             WatchRow(WatchPair("USD", "EUR"), PairRate(0.89174, emptyMap(), 0.0, Quality.Consensus, 0), spark(1.0, -0.002).map { HistoryPoint(it.date, it.value * 0.89) }),
@@ -95,16 +96,18 @@ class ScreenshotTest {
             WatchRow(WatchPair("EUR", "KRW"), PairRate(1523.4567, emptyMap(), 0.0, Quality.Consensus, 0), spark(6.0, -0.001).map { HistoryPoint(it.date, it.value * 1500) }),
         ),
         status = PairRate(1.0, mapOf("a" to 1.0, "b" to 1.0, "c" to 1.0), 0.0, Quality.Consensus, 1_794_355_352_000L),
-        editing = editing, refreshing = false,
+        editing = editing, refreshing = false, sort = sort, sortDescending = desc,
     )
 
-    private fun shotHome(name: String, mode: ThemeMode, editing: Boolean = false) {
-        rule.setContent { RobFxTheme(mode, dynamic = false) { HomeContent(home(editing), HomeNoop) } }
+    private fun shotHome(name: String, mode: ThemeMode, editing: Boolean = false, sort: WatchSort = WatchSort.Custom, desc: Boolean = false) {
+        rule.setContent { RobFxTheme(mode, dynamic = false) { HomeContent(home(editing, sort, desc), HomeNoop) } }
         rule.mainClock.advanceTimeBy(500)
         rule.waitForIdle()
         File("build/screens").mkdirs()
         rule.onRoot().captureRoboImage("build/screens/$name.png")
     }
+
+    @Test fun homeSortedByChange() = shotHome("home_sorted_change", ThemeMode.Amoled, sort = WatchSort.Change, desc = true)
 
     @Test fun homeAmoled() = shotHome("home_amoled", ThemeMode.Amoled)
     @Test fun homeLightEditing() = shotHome("home_light_edit", ThemeMode.Light, editing = true)

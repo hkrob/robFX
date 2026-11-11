@@ -1,6 +1,6 @@
 # robFX
 
-Clean, sharp currency converter for Android (Compose, Material 3, target SDK 36).
+Clean, sharp currency converter for Android (Compose, Material 3, compile and target SDK 37 / Android 17).
 
 - Rates: median of Frankfurter (ECB), fawazahmed0 currency-api and open.er-api.com, queried in parallel; status pill warns when sources differ >0.5%.
 - Charts: Frankfurter time series, currency-api dated snapshots as fallback. Scrub by dragging.

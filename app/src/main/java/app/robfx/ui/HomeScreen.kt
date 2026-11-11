@@ -51,6 +51,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.robfx.Sheet
+import app.robfx.WatchSort
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import app.robfx.WatchRow
 import app.robfx.calc.Format
 import app.robfx.data.Currencies
@@ -64,6 +67,8 @@ data class HomeUi(
     val editing: Boolean,
     val refreshing: Boolean,
     val updateVersion: String? = null,
+    val sort: WatchSort = WatchSort.Custom,
+    val sortDescending: Boolean = false,
 )
 
 interface HomeActions {
@@ -71,6 +76,7 @@ interface HomeActions {
     fun remove(w: WatchPair)
     fun toggleEditing()
     fun startEditing()
+    fun tapSort(s: WatchSort)
     fun add()
     fun refresh()
     fun sheet(s: Sheet)
@@ -113,6 +119,8 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
                 }
             }
         }
+
+        if (ui.rows.size > 1) SortBar(ui.sort, ui.sortDescending, actions::tapSort)
 
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 8.dp, bottom = 16.dp)) {
             if (ui.rows.isEmpty()) {
@@ -212,5 +220,37 @@ fun Sparkline(values: List<Double>, color: Color, modifier: Modifier = Modifier)
         }
         drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         drawCircle(color, radius = 2.8.dp.toPx(), center = Offset(x(values.lastIndex), y(values.last())))
+    }
+}
+
+@Composable
+private fun SortBar(sort: WatchSort, descending: Boolean, onTap: (WatchSort) -> Unit) {
+    val pal = Pal.current
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("SORT", color = pal.subtext, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.padding(start = 8.dp, end = 4.dp))
+        WatchSort.entries.forEach { s ->
+            val selected = s == sort
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(if (selected) pal.key else Color.Transparent)
+                    .clickable { onTap(s) }
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(s.label, color = if (selected) pal.accent else pal.subtext, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                // The arrow says which way: up is low to high (or A to Z), down is high to low.
+                if (selected && s != WatchSort.Custom) {
+                    Icon(
+                        if (descending) Icons.Outlined.ArrowDownward else Icons.Outlined.ArrowUpward,
+                        contentDescription = if (descending) "Descending" else "Ascending",
+                        tint = pal.accent, modifier = Modifier.padding(start = 4.dp).size(14.dp),
+                    )
+                }
+            }
+        }
     }
 }

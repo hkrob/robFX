@@ -4,6 +4,14 @@ import android.Manifest
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -68,32 +76,42 @@ class MainActivity : ComponentActivity() {
                     if (Build.VERSION.SDK_INT >= 33 && !Notifier.canPost(this)) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 val editing by vm.editing.collectAsState()
+                // Wide windows (tablets, unfolded foldables, landscape) get a centred column instead of a stretched phone UI.
+                androidx.compose.foundation.layout.BoxWithConstraints(
+                    Modifier.fillMaxSize().background(app.robfx.ui.theme.Pal.current.bg),
+                    contentAlignment = androidx.compose.ui.Alignment.TopCenter,
+                ) {
+                    val landscape = maxWidth > maxHeight
+                    Box(Modifier.fillMaxHeight().widthIn(max = if (landscape) 1000.dp else 560.dp).fillMaxWidth()) {
                 AppRoot(
-                    screen = screen,
-                    editing = editing,
-                    onBackToMarkets = vm::goHome,
-                    onStopEditing = { vm.setEditing(false) },
-                    markets = {
-                        val rows by vm.rows.collectAsState()
-                        val refreshing by vm.refreshing.collectAsState()
-                        val status = rows.firstNotNullOfOrNull { it.rate }
-                        val update by vm.updateState.collectAsState()
-                        val pending = (update as? UpdateState.Available)?.info?.version ?: (update as? UpdateState.NeedsPermission)?.info?.version
-                        HomeContent(
-                            HomeUi(rows, status, editing, refreshing, pending),
-                            object : HomeActions {
-                                override fun open(w: WatchPair) = vm.openPair(w)
-                                override fun remove(w: WatchPair) = vm.removeWatch(w)
-                                override fun toggleEditing() = vm.toggleEditing()
-                                override fun startEditing() = vm.setEditing(true)
-                                override fun add() = vm.startAdd()
-                                override fun refresh() = vm.refresh()
-                                override fun sheet(s: Sheet) = vm.open(s)
-                            },
-                        )
-                    },
-                    converter = { ConverterScreen(vm = vm, showSheets = false, requestNotifications = notify) },
-                )
+                        screen = screen,
+                        editing = editing,
+                        onBackToMarkets = vm::goHome,
+                        onStopEditing = { vm.setEditing(false) },
+                        markets = {
+                            val rows by vm.rows.collectAsState()
+                            val refreshing by vm.refreshing.collectAsState()
+                            val status = rows.firstNotNullOfOrNull { it.rate }
+                            val update by vm.updateState.collectAsState()
+                            val pending = (update as? UpdateState.Available)?.info?.version ?: (update as? UpdateState.NeedsPermission)?.info?.version
+                            HomeContent(
+                                HomeUi(rows, status, editing, refreshing, pending, settings.sort, settings.sortDescending),
+                                object : HomeActions {
+                                    override fun open(w: WatchPair) = vm.openPair(w)
+                                    override fun remove(w: WatchPair) = vm.removeWatch(w)
+                                    override fun toggleEditing() = vm.toggleEditing()
+                                    override fun startEditing() = vm.setEditing(true)
+                                    override fun tapSort(s: WatchSort) = vm.tapSort(s)
+                                    override fun add() = vm.startAdd()
+                                    override fun refresh() = vm.refresh()
+                                    override fun sheet(s: Sheet) = vm.open(s)
+                                },
+                            )
+                        },
+                        converter = { ConverterScreen(vm = vm, showSheets = false, requestNotifications = notify) },
+                    )
+                    }
+                }
                 // Sheets live above both screens so settings and alerts open from either.
                 Sheets(vm, notify)
             }

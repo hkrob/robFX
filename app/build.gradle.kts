@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -13,14 +12,14 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "app.robfx"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "app.robfx"
         minSdk = 26
-        targetSdk = 36
-        versionCode = 4
-        versionName = "1.0.3"
+        targetSdk = 37
+        versionCode = 5
+        versionName = "1.0.4"
     }
 
     signingConfigs {

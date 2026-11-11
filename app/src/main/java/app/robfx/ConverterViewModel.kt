@@ -73,8 +73,10 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     val watchlist: StateFlow<List<WatchPair>> = c.settings.watchlist.stateIn(viewModelScope, SharingStarted.Eagerly, defaultWatchlist())
     private val sparks = MutableStateFlow<Map<String, List<HistoryPoint>>>(emptyMap())
 
-    val rows: StateFlow<List<WatchRow>> = combine(watchlist, sparks, c.rates.snapshot) { list, sp, _ ->
-        list.map { WatchRow(it, c.rates.pair(it.from, it.to), sp[it.key]) }
+    val rows: StateFlow<List<WatchRow>> = combine(
+        watchlist, sparks, c.rates.snapshot, settings.map { it.sort to it.sortDescending }.distinctUntilChanged(),
+    ) { list, sp, _, (sort, desc) ->
+        WatchSorting.sort(list.map { WatchRow(it, c.rates.pair(it.from, it.to), sp[it.key]) }, sort, desc)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private var pendingFrom: String? = null
@@ -178,6 +180,12 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     fun openPair(w: WatchPair) {
         viewModelScope.launch { c.settings.setPair(w.from, w.to) }
         _screen.value = Screen.Converter
+    }
+
+    fun tapSort(tapped: WatchSort) {
+        val s = settings.value
+        val (sort, desc) = WatchSorting.tap(s.sort, s.sortDescending, tapped)
+        viewModelScope.launch { c.settings.setSort(sort, desc) }
     }
 
     fun goHome() { _screen.value = Screen.Home }

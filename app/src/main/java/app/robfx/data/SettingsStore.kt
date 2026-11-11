@@ -22,6 +22,8 @@ data class Settings(
     val range: Range = Range.M1,
     val recents: List<String> = emptyList(),
     val autoUpdate: Boolean = true,
+    val sort: app.robfx.WatchSort = app.robfx.WatchSort.Custom,
+    val sortDescending: Boolean = false,
 )
 
 @Serializable
@@ -61,6 +63,8 @@ class SettingsStore(private val context: Context) {
         val alerts = stringPreferencesKey("alerts")
         val watch = stringPreferencesKey("watch")
         val autoUpdate = booleanPreferencesKey("auto_update")
+        val sort = stringPreferencesKey("watch_sort")
+        val sortDesc = booleanPreferencesKey("watch_sort_desc")
         val lastUpdateCheck = androidx.datastore.preferences.core.longPreferencesKey("update_checked_at")
         val lastNotified = stringPreferencesKey("update_notified")
     }
@@ -78,6 +82,8 @@ class SettingsStore(private val context: Context) {
             range = p[K.range]?.let { runCatching { Range.valueOf(it) }.getOrNull() } ?: Range.M1,
             recents = p[K.recents]?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
             autoUpdate = p[K.autoUpdate] ?: true,
+            sort = p[K.sort]?.let { runCatching { app.robfx.WatchSort.valueOf(it) }.getOrNull() } ?: app.robfx.WatchSort.Custom,
+            sortDescending = p[K.sortDesc] ?: false,
         )
     }
 
@@ -108,6 +114,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setExpr(v: String) = context.dataStore.edit { it[K.expr] = v }
     suspend fun setTheme(v: ThemeMode) = context.dataStore.edit { it[K.theme] = v.name }
     suspend fun setDynamic(v: Boolean) = context.dataStore.edit { it[K.dynamic] = v }
+    suspend fun setSort(sort: app.robfx.WatchSort, descending: Boolean) = context.dataStore.edit { it[K.sort] = sort.name; it[K.sortDesc] = descending }
     suspend fun setAutoUpdate(v: Boolean) = context.dataStore.edit { it[K.autoUpdate] = v }
     suspend fun lastUpdateCheck(): Long = context.dataStore.data.map { it[K.lastUpdateCheck] ?: 0L }.first()
     suspend fun setLastUpdateCheck(v: Long) = context.dataStore.edit { it[K.lastUpdateCheck] = v }

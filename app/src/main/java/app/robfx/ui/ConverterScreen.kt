@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -130,77 +132,100 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
     val settings = ui.settings
     val view = LocalView.current
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(pal.bg)
-            .statusBarsPadding(),
-    ) {
-        TopBar(
-            pair = ui.pair,
-            watched = ui.watched,
-            onBack = actions::back,
-            onWatch = actions::toggleWatch,
-            onStatus = { actions.open(Sheet.Settings) },
-            onAlerts = { actions.open(Sheet.Alerts) },
-            onSettings = { actions.open(Sheet.Settings) },
-        )
+    BoxWithConstraints(Modifier.fillMaxSize().background(pal.bg)) {
+        // Android 17 ignores orientation and resizability limits on big screens, so landscape and tablets are a given:
+        // when the window is wider than it is tall, the keypad moves beside the display instead of under it.
+        val screenW = maxWidth
+        val wide = maxWidth > maxHeight && maxWidth >= 560.dp
+        val compact = maxHeight < 520.dp
+        val onScrub = { if (settings.haptics) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
 
-        Display(
-            fromCode = settings.from,
-            toCode = settings.to,
-            expr = ui.expr,
-            converted = ui.converted,
-            onFrom = { actions.open(Sheet.FromPicker) },
-            onTo = { actions.open(Sheet.ToPicker) },
-        )
-
-        RateLine(settings.from, settings.to, ui.pair, ui.refreshing, onRefresh = actions::refresh)
-
-        RateChart(
-            points = ui.history.points,
-            loading = ui.history.loading,
-            error = ui.history.error,
-            range = settings.range,
-            onRange = actions::setRange,
-            onRetry = actions::retryHistory,
-            onScrub = { if (settings.haptics) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) },
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(top = 6.dp),
-        )
-
-        // The chevron from the reference: fold the keypad away to give the chart the screen.
-        val rot by animateFloatAsState(if (ui.keypadOpen) 0f else 180f, label = "chev")
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(36.dp)
-                .clickable(onClick = actions::toggleKeypad),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Outlined.ExpandMore, contentDescription = if (ui.keypadOpen) "Hide keypad" else "Show keypad", tint = pal.subtext, modifier = Modifier.rotate(rot))
+        @Composable
+        fun ColumnScope.Main() {
+            TopBar(
+                pair = ui.pair,
+                watched = ui.watched,
+                onBack = actions::back,
+                onWatch = actions::toggleWatch,
+                onStatus = { actions.open(Sheet.Settings) },
+                onAlerts = { actions.open(Sheet.Alerts) },
+                onSettings = { actions.open(Sheet.Settings) },
+            )
+            Display(
+                fromCode = settings.from,
+                toCode = settings.to,
+                expr = ui.expr,
+                converted = ui.converted,
+                onFrom = { actions.open(Sheet.FromPicker) },
+                onTo = { actions.open(Sheet.ToPicker) },
+                compact = compact,
+            )
+            RateLine(settings.from, settings.to, ui.pair, ui.refreshing, onRefresh = actions::refresh)
+            RateChart(
+                points = ui.history.points,
+                loading = ui.history.loading,
+                error = ui.history.error,
+                range = settings.range,
+                onRange = actions::setRange,
+                onRetry = actions::retryHistory,
+                onScrub = onScrub,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+            )
         }
 
-        AnimatedVisibility(
-            visible = ui.keypadOpen,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut(),
-        ) {
-            BoxWithConstraints {
-                // Keys scale down on short screens so the chart never collapses to nothing.
-                val keyH: Dp = (maxHeight.coerceAtLeast(600.dp) * 0.082f).coerceIn(52.dp, 76.dp)
-                Keypad(
-                    keyHeight = keyH,
-                    haptics = settings.haptics,
-                    onKey = actions::key,
-                    onSwap = actions::swap,
-                    modifier = Modifier.navigationBarsPadding(),
-                )
+        if (wide) {
+            Row(Modifier.fillMaxSize().statusBarsPadding()) {
+                Column(Modifier.weight(1f).fillMaxHeight()) { Main() }
+                BoxWithConstraints(Modifier.width(minOf(screenW * 0.4f, 380.dp)).fillMaxHeight().navigationBarsPadding()) {
+                    val keyH = ((maxHeight - 4.dp) / 5).coerceIn(44.dp, 150.dp)
+                    Keypad(
+                        keyHeight = keyH,
+                        haptics = settings.haptics,
+                        onKey = actions::key,
+                        onSwap = actions::swap,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize().statusBarsPadding()) {
+                Main()
+
+                // The chevron from the reference: fold the keypad away to give the chart the screen.
+                val rot by animateFloatAsState(if (ui.keypadOpen) 0f else 180f, label = "chev")
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .clickable(onClick = actions::toggleKeypad),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.ExpandMore, contentDescription = if (ui.keypadOpen) "Hide keypad" else "Show keypad", tint = pal.subtext, modifier = Modifier.rotate(rot))
+                }
+
+                AnimatedVisibility(
+                    visible = ui.keypadOpen,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut(),
+                ) {
+                    BoxWithConstraints {
+                        // Keys scale down on short screens so the chart never collapses to nothing.
+                        val keyH: Dp = (maxHeight.coerceAtLeast(600.dp) * 0.082f).coerceIn(52.dp, 76.dp)
+                        Keypad(
+                            keyHeight = keyH,
+                            haptics = settings.haptics,
+                            onKey = actions::key,
+                            onSwap = actions::swap,
+                            modifier = Modifier.navigationBarsPadding(),
+                        )
+                    }
+                }
+                if (!ui.keypadOpen) Spacer(Modifier.navigationBarsPadding())
             }
         }
-        if (!ui.keypadOpen) Spacer(Modifier.navigationBarsPadding())
     }
 }
 
@@ -261,6 +286,7 @@ private fun Display(
     converted: Double?,
     onFrom: () -> Unit,
     onTo: () -> Unit,
+    compact: Boolean = false,
 ) {
     val pal = Pal.current
     val ctx = LocalContext.current
@@ -270,21 +296,21 @@ private fun Display(
     val resultCandidates = converted?.let { listOf(Format.amount(it), Format.amountCompact(it)).distinct() } ?: listOf(result)
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-        AmountRow(from.code, from.name, from.flag, listOf(Format.pretty(expr)), pal.text, onFrom, null)
+        AmountRow(from.code, from.name, from.flag, listOf(Format.pretty(expr)), pal.text, onFrom, null, compact)
         Spacer(Modifier.height(4.dp))
-        AmountRow(to.code, to.name, to.flag, resultCandidates, pal.accent, onTo) {
+        AmountRow(to.code, to.name, to.flag, resultCandidates, pal.accent, onTo, onLongAmount = {
             val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("Converted amount", result.replace(",", "")))
             Toast.makeText(ctx, "Copied $result", Toast.LENGTH_SHORT).show()
-        }
+        }, compact = compact)
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AmountRow(code: String, name: String, flag: String, amount: List<String>, color: androidx.compose.ui.graphics.Color, onCurrency: () -> Unit, onLongAmount: (() -> Unit)?) {
+private fun AmountRow(code: String, name: String, flag: String, amount: List<String>, color: androidx.compose.ui.graphics.Color, onCurrency: () -> Unit, onLongAmount: (() -> Unit)?, compact: Boolean = false) {
     val pal = Pal.current
-    Row(Modifier.fillMaxWidth().height(84.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().height(if (compact) 60.dp else 84.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(
             Modifier
                 .clip(RoundedCornerShape(16.dp))
@@ -303,8 +329,8 @@ private fun AmountRow(code: String, name: String, flag: String, amount: List<Str
         FitText(
             candidates = amount,
             color = color,
-            maxSize = 52,
-            preferredMin = 36,
+            maxSize = if (compact) 38 else 52,
+            preferredMin = if (compact) 28 else 36,
             hardMin = 18,
             modifier = Modifier
                 .weight(1f)
