@@ -88,7 +88,10 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
 
         Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
             Text("Markets", color = pal.text, fontSize = 40.sp, fontWeight = FontWeight.Light)
-            Text("Past week · tap a pair to convert", color = pal.subtext, fontSize = 14.sp)
+            Text(
+                (ui.status?.let { "Updated ${timeOf(it.updatedAt)} · " } ?: "") + "Past week · tap a pair to convert",
+                color = pal.subtext, fontSize = 14.sp,
+            )
         }
 
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 8.dp, bottom = 16.dp)) {
@@ -140,8 +143,13 @@ private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, on
                 Text("${from.name} → ${to.name}", color = pal.subtext, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Sparkline(row.points?.map { it.value }.orEmpty(), tone, Modifier.width(72.dp).height(30.dp))
-            Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(96.dp)) {
-                Text(row.rate?.let { Format.rate(it.rate) } ?: "—", color = pal.text, fontSize = 22.sp, fontWeight = FontWeight.Light, maxLines = 1)
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(104.dp)) {
+                // Drop significant digits before the type shrinks, and shrink before anything clips.
+                FitText(
+                    candidates = row.rate?.let { r -> listOf(6, 5, 4, 3).map { Format.rate(r.rate, it) }.distinct() } ?: listOf("—"),
+                    color = pal.text, maxSize = 22, preferredMin = 18, hardMin = 13,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Text(change?.let { Format.percent(it) } ?: "···", color = tone, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }

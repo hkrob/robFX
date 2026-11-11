@@ -267,11 +267,12 @@ private fun Display(
     val from = Currencies.get(fromCode)
     val to = Currencies.get(toCode)
     val result = converted?.let { Format.amount(it) } ?: "—"
+    val resultCandidates = converted?.let { listOf(Format.amount(it), Format.amountCompact(it)).distinct() } ?: listOf(result)
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-        AmountRow(from.code, from.name, from.flag, Format.pretty(expr), pal.text, onFrom, null)
+        AmountRow(from.code, from.name, from.flag, listOf(Format.pretty(expr)), pal.text, onFrom, null)
         Spacer(Modifier.height(4.dp))
-        AmountRow(to.code, to.name, to.flag, result, pal.accent, onTo) {
+        AmountRow(to.code, to.name, to.flag, resultCandidates, pal.accent, onTo) {
             val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("Converted amount", result.replace(",", "")))
             Toast.makeText(ctx, "Copied $result", Toast.LENGTH_SHORT).show()
@@ -281,7 +282,7 @@ private fun Display(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AmountRow(code: String, name: String, flag: String, amount: String, color: androidx.compose.ui.graphics.Color, onCurrency: () -> Unit, onLongAmount: (() -> Unit)?) {
+private fun AmountRow(code: String, name: String, flag: String, amount: List<String>, color: androidx.compose.ui.graphics.Color, onCurrency: () -> Unit, onLongAmount: (() -> Unit)?) {
     val pal = Pal.current
     Row(Modifier.fillMaxWidth().height(84.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(
@@ -298,23 +299,13 @@ private fun AmountRow(code: String, name: String, flag: String, amount: String, 
             }
             Text(name, color = pal.subtext, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(120.dp))
         }
-        // Long entries shrink rather than wrap or clip; thirty-six sp still reads at arm's length.
-        val size = when {
-            amount.length <= 8 -> 52
-            amount.length <= 11 -> 44
-            amount.length <= 15 -> 36
-            amount.length <= 20 -> 28
-            else -> 22
-        }
-        Text(
-            amount,
+        // Fewer decimals before smaller type, smaller type before clipping: see FitText.
+        FitText(
+            candidates = amount,
             color = color,
-            fontSize = size.sp,
-            fontWeight = FontWeight.Light,
-            maxLines = 1,
-            softWrap = false,
-            textAlign = TextAlign.End,
-            overflow = TextOverflow.Clip,
+            maxSize = 52,
+            preferredMin = 36,
+            hardMin = 18,
             modifier = Modifier
                 .weight(1f)
                 .combinedClickable(onClick = {}, onLongClick = onLongAmount),

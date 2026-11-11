@@ -134,10 +134,18 @@ object Format {
         if (v.abs() >= BigDecimal.ONE) v.setScale(4, RoundingMode.HALF_UP) else v.round(MathContext(5)),
     )
 
+    /** The shorter form used when [amount] won't fit: two decimals above 1, three significant digits below. */
+    fun amountCompact(v: Double): String {
+        if (v.isNaN() || v.isInfinite()) return "—"
+        if (v == 0.0) return "0"
+        val bd = BigDecimal(v)
+        return grouped().format(if (bd.abs() >= BigDecimal.ONE) bd.setScale(2, RoundingMode.HALF_UP) else bd.round(MathContext(3)))
+    }
+
     /** Rates keep six significant digits so 0.0067 JPY and 7.8449 HKD are both honest. */
-    fun rate(v: Double): String {
+    fun rate(v: Double, significant: Int = 6): String {
         if (v.isNaN() || v.isInfinite() || v == 0.0) return "—"
-        return grouped().format(BigDecimal(v).round(MathContext(6)))
+        return grouped().format(BigDecimal(v).round(MathContext(significant)))
     }
 
     fun percent(frac: Double): String {
