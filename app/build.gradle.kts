@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,22 +7,38 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+val keystoreProps = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+
 android {
-    namespace = "app.parity"
+    namespace = "app.robfx"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.parity"
+        applicationId = "app.robfx"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        if (keystoreProps.isNotEmpty()) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Shrinking is off on purpose: this build has only been exercised headlessly, and an R8 problem would only show up on a device.
+            isMinifyEnabled = false
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

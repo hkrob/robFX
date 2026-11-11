@@ -1,4 +1,4 @@
-# Parity
+# robFX
 
 Clean, sharp currency converter for Android (Compose, Material 3, target SDK 36).
 

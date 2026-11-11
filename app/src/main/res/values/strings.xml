@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Parity</string>
+    <string name="app_name">robFX</string>
     <string name="channel_alerts">Rate alerts</string>
     <string name="widget_description">Your pair and amount at a glance</string>
 </resources>

@@ -13,5 +13,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "parity"
+rootProject.name = "robfx"
 include(":app")

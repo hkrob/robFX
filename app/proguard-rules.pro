@@ -2,6 +2,6 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.openjsse.**
 -keepattributes *Annotation*, InnerClasses
--keepclassmembers class app.parity.**$$serializer { *; }
--keepclassmembers class app.parity.** { *** Companion; }
--keepclasseswithmembers class app.parity.** { kotlinx.serialization.KSerializer serializer(...); }
+-keepclassmembers class app.robfx.**$$serializer { *; }
+-keepclassmembers class app.robfx.** { *** Companion; }
+-keepclasseswithmembers class app.robfx.** { kotlinx.serialization.KSerializer serializer(...); }
