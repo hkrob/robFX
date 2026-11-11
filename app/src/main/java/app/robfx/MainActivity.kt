@@ -24,8 +24,7 @@ import app.robfx.ui.HomeContent
 import app.robfx.ui.HomeUi
 import app.robfx.ui.Sheets
 import app.robfx.data.WatchPair
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
+import app.robfx.ui.AppRoot
 import app.robfx.ui.theme.RobFxTheme
 import app.robfx.ui.theme.resolveDark
 import app.robfx.work.Notifier
@@ -65,29 +64,31 @@ class MainActivity : ComponentActivity() {
                 val notify = {
                     if (Build.VERSION.SDK_INT >= 33 && !Notifier.canPost(this)) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                BackHandler(enabled = screen == Screen.Converter) { vm.goHome() }
-                Crossfade(screen, label = "screen") { s ->
-                    when (s) {
-                        Screen.Home -> {
-                            val rows by vm.rows.collectAsState()
-                            val editing by vm.editing.collectAsState()
-                            val refreshing by vm.refreshing.collectAsState()
-                            val status = rows.firstNotNullOfOrNull { it.rate }
-                            HomeContent(
-                                HomeUi(rows, status, editing, refreshing),
-                                object : HomeActions {
-                                    override fun open(w: WatchPair) = vm.openPair(w)
-                                    override fun remove(w: WatchPair) = vm.removeWatch(w)
-                                    override fun toggleEditing() = vm.toggleEditing()
-                                    override fun add() = vm.startAdd()
-                                    override fun refresh() = vm.refresh()
-                                    override fun sheet(s: Sheet) = vm.open(s)
-                                },
-                            )
-                        }
-                        Screen.Converter -> ConverterScreen(vm = vm, showSheets = false, requestNotifications = notify)
-                    }
-                }
+                val editing by vm.editing.collectAsState()
+                AppRoot(
+                    screen = screen,
+                    editing = editing,
+                    onBackToMarkets = vm::goHome,
+                    onStopEditing = { vm.setEditing(false) },
+                    markets = {
+                        val rows by vm.rows.collectAsState()
+                        val refreshing by vm.refreshing.collectAsState()
+                        val status = rows.firstNotNullOfOrNull { it.rate }
+                        HomeContent(
+                            HomeUi(rows, status, editing, refreshing),
+                            object : HomeActions {
+                                override fun open(w: WatchPair) = vm.openPair(w)
+                                override fun remove(w: WatchPair) = vm.removeWatch(w)
+                                override fun toggleEditing() = vm.toggleEditing()
+                                override fun startEditing() = vm.setEditing(true)
+                                override fun add() = vm.startAdd()
+                                override fun refresh() = vm.refresh()
+                                override fun sheet(s: Sheet) = vm.open(s)
+                            },
+                        )
+                    },
+                    converter = { ConverterScreen(vm = vm, showSheets = false, requestNotifications = notify) },
+                )
                 // Sheets live above both screens so settings and alerts open from either.
                 Sheets(vm, notify)
             }

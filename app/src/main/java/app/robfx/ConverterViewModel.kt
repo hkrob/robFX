@@ -171,6 +171,7 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
 
     fun goHome() { _screen.value = Screen.Home }
     fun toggleEditing() = _editing.update { !it }
+    fun setEditing(on: Boolean) { _editing.value = on }
 
     fun isWatched(f: String, t: String) = watchlist.value.any { it.from == f && it.to == t }
 

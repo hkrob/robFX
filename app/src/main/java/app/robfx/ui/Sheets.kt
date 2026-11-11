@@ -219,7 +219,7 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
                 ) { Text(if (refreshing) "Refreshing…" else "Refresh now", color = pal.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
             }
             item {
-                Text("robFX 1.0.1 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
+                Text("robFX 1.0.2 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
             }
         }
     }

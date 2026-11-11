@@ -1,6 +1,10 @@
 package app.robfx.ui
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -65,6 +69,7 @@ interface HomeActions {
     fun open(w: WatchPair)
     fun remove(w: WatchPair)
     fun toggleEditing()
+    fun startEditing()
     fun add()
     fun refresh()
     fun sheet(s: Sheet)
@@ -98,7 +103,7 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
             if (ui.rows.isEmpty()) {
                 item { Text("Nothing watched yet. Add a pair to follow it here.", color = pal.subtext, fontSize = 15.sp, modifier = Modifier.padding(24.dp)) }
             }
-            items(ui.rows, key = { it.pair.key }) { row -> WatchRowItem(row, ui.editing, { actions.open(row.pair) }, { actions.remove(row.pair) }) }
+            items(ui.rows, key = { it.pair.key }) { row -> WatchRowItem(row, ui.editing, { actions.open(row.pair) }, { actions.remove(row.pair) }, actions::startEditing) }
         }
 
         Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
@@ -114,8 +119,10 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, onRemove: () -> Unit, onLongPress: () -> Unit) {
+    val view = LocalView.current
     val pal = Pal.current
     val from = Currencies.get(row.pair.from)
     val to = Currencies.get(row.pair.to)
@@ -128,11 +135,24 @@ private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, on
 
     Column {
         Row(
-            Modifier.fillMaxWidth().clickable(onClick = if (editing) onRemove else onOpen).padding(horizontal = 24.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth()
+                .combinedClickable(
+                    // In edit mode a stray tap on a row does nothing; only the red minus removes, so a slip can't delete a pair.
+                    onClick = { if (!editing) onOpen() },
+                    onLongClick = {
+                        if (!editing) {
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            onLongPress()
+                        }
+                    },
+                )
+                .padding(horizontal = 24.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (editing) {
-                Icon(Icons.Outlined.RemoveCircle, "Remove ${row.pair.key}", tint = pal.negative, modifier = Modifier.padding(end = 14.dp).size(24.dp))
+                Box(Modifier.padding(end = 6.dp).size(44.dp).clip(CircleShape).clickable(onClick = onRemove), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.RemoveCircle, "Remove ${row.pair.key}", tint = pal.negative, modifier = Modifier.size(26.dp))
+                }
             }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

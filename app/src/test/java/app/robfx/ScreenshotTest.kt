@@ -73,6 +73,7 @@ class ScreenshotTest {
         override fun open(w: WatchPair) {}
         override fun remove(w: WatchPair) {}
         override fun toggleEditing() {}
+        override fun startEditing() {}
         override fun add() {}
         override fun refresh() {}
         override fun sheet(s: Sheet) {}
