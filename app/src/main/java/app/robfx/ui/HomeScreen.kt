@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.robfx.HomeTab
 import app.robfx.Sheet
 import app.robfx.WatchSort
 import androidx.compose.material.icons.outlined.ArrowDownward
@@ -77,6 +78,7 @@ interface HomeActions {
     fun toggleEditing()
     fun startEditing()
     fun tapSort(s: WatchSort)
+    fun selectTab(t: HomeTab)
     fun add()
     fun refresh()
     fun sheet(s: Sheet)
@@ -98,8 +100,8 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
             IconBtn(Icons.Outlined.Settings, "Settings", { actions.sheet(Sheet.Settings) }, pal.keyText)
         }
 
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-            Text("Markets", color = pal.text, fontSize = 40.sp, fontWeight = FontWeight.Light)
+        HomeTabs(HomeTab.Markets, actions::selectTab)
+        Column(Modifier.padding(horizontal = 24.dp, vertical = 0.dp)) {
             Text(
                 (ui.status?.let { "Updated ${timeOf(it.updatedAt)} · " } ?: "") + "Past week · tap a pair to convert",
                 color = pal.subtext, fontSize = 14.sp,
@@ -251,6 +253,24 @@ private fun SortBar(sort: WatchSort, descending: Boolean, onTap: (WatchSort) -> 
                     )
                 }
             }
+        }
+    }
+}
+
+/** The home screen's two halves as big, light titles: the chosen one is full strength, the other waits quietly. */
+@Composable
+fun HomeTabs(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
+    val pal = Pal.current
+    Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), verticalAlignment = Alignment.Bottom) {
+        HomeTab.entries.forEach { t ->
+            Text(
+                if (t == HomeTab.Markets) "Markets" else "Unit price",
+                color = if (t == selected) pal.text else pal.subtext.copy(alpha = 0.7f),
+                fontSize = if (t == selected) 36.sp else 28.sp,
+                fontWeight = FontWeight.Light,
+                maxLines = 1,
+                modifier = Modifier.padding(end = 22.dp).clip(RoundedCornerShape(8.dp)).clickable { onSelect(t) },
+            )
         }
     }
 }

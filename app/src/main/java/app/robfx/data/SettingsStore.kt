@@ -65,6 +65,8 @@ class SettingsStore(private val context: Context) {
         val autoUpdate = booleanPreferencesKey("auto_update")
         val sort = stringPreferencesKey("watch_sort")
         val sortDesc = booleanPreferencesKey("watch_sort_desc")
+        val unitComparison = stringPreferencesKey("unit_comparison")
+        val unitRecents = stringPreferencesKey("unit_recents")
         val lastUpdateCheck = androidx.datastore.preferences.core.longPreferencesKey("update_checked_at")
         val lastNotified = stringPreferencesKey("update_notified")
     }
@@ -115,6 +117,23 @@ class SettingsStore(private val context: Context) {
     suspend fun setTheme(v: ThemeMode) = context.dataStore.edit { it[K.theme] = v.name }
     suspend fun setDynamic(v: Boolean) = context.dataStore.edit { it[K.dynamic] = v }
     suspend fun setSort(sort: app.robfx.WatchSort, descending: Boolean) = context.dataStore.edit { it[K.sort] = sort.name; it[K.sortDesc] = descending }
+    suspend fun unitComparison(): app.robfx.unitprice.Comparison? = context.dataStore.data.first()[K.unitComparison]?.let {
+        runCatching { json.decodeFromString(app.robfx.unitprice.Comparison.serializer(), it) }.getOrNull()
+    }
+
+    suspend fun setUnitComparison(c: app.robfx.unitprice.Comparison) = context.dataStore.edit {
+        it[K.unitComparison] = json.encodeToString(app.robfx.unitprice.Comparison.serializer(), c)
+    }
+
+    val unitRecents: Flow<List<app.robfx.unitprice.SavedComparison>> = context.dataStore.data.map { p ->
+        p[K.unitRecents]?.let { runCatching { json.decodeFromString(app.robfx.unitprice.SavedFile.serializer(), it).items }.getOrNull() } ?: emptyList()
+    }
+
+    suspend fun updateUnitRecents(transform: (List<app.robfx.unitprice.SavedComparison>) -> List<app.robfx.unitprice.SavedComparison>) = context.dataStore.edit { p ->
+        val cur = p[K.unitRecents]?.let { runCatching { json.decodeFromString(app.robfx.unitprice.SavedFile.serializer(), it).items }.getOrNull() } ?: emptyList()
+        p[K.unitRecents] = json.encodeToString(app.robfx.unitprice.SavedFile.serializer(), app.robfx.unitprice.SavedFile(items = transform(cur)))
+    }
+
     suspend fun setAutoUpdate(v: Boolean) = context.dataStore.edit { it[K.autoUpdate] = v }
     suspend fun lastUpdateCheck(): Long = context.dataStore.data.map { it[K.lastUpdateCheck] ?: 0L }.first()
     suspend fun setLastUpdateCheck(v: Long) = context.dataStore.edit { it[K.lastUpdateCheck] = v }

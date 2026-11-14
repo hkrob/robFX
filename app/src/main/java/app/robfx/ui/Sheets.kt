@@ -58,24 +58,31 @@ import app.robfx.data.ThemeMode
 import app.robfx.update.UpdateState
 import app.robfx.ui.theme.Pal
 
+/** The app's bottom sheet: full height, the theme's background, rounded top. Shared by every screen's sheets. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Sheets(vm: ConverterViewModel, requestNotifications: () -> Unit) {
-    val sheet by vm.sheet.collectAsState()
-    if (sheet == Sheet.None) return
+fun AppSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     val pal = Pal.current
     ModalBottomSheet(
-        onDismissRequest = vm::closeSheet,
+        onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = pal.bg,
         contentColor = pal.text,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-    ) {
+    ) { content() }
+}
+
+@Composable
+fun Sheets(vm: ConverterViewModel, requestNotifications: () -> Unit) {
+    val sheet by vm.sheet.collectAsState()
+    if (sheet == Sheet.None) return
+    val recents = vm.settings.collectAsState().value.recents
+    AppSheet(onDismiss = vm::closeSheet) {
         when (sheet) {
-            Sheet.FromPicker -> Picker(vm, "Convert from", vm.settings.collectAsState().value.from) { vm.pick(it, true) }
-            Sheet.ToPicker -> Picker(vm, "Convert to", vm.settings.collectAsState().value.to) { vm.pick(it, false) }
-            Sheet.AddFrom -> Picker(vm, "Watch a pair \u00B7 1 of 2", null) { vm.pickForWatch(it) }
-            Sheet.AddTo -> Picker(vm, "Watch a pair \u00B7 2 of 2", null) { vm.pickForWatch(it) }
+            Sheet.FromPicker -> CurrencyPicker(recents, "Convert from", vm.settings.collectAsState().value.from) { vm.pick(it, true) }
+            Sheet.ToPicker -> CurrencyPicker(recents, "Convert to", vm.settings.collectAsState().value.to) { vm.pick(it, false) }
+            Sheet.AddFrom -> CurrencyPicker(recents, "Watch a pair \u00B7 1 of 2", null) { vm.pickForWatch(it) }
+            Sheet.AddTo -> CurrencyPicker(recents, "Watch a pair \u00B7 2 of 2", null) { vm.pickForWatch(it) }
             Sheet.Alerts -> Alerts(vm, requestNotifications)
             Sheet.Settings -> SettingsSheet(vm, onAlerts = { vm.open(Sheet.Alerts) })
             Sheet.None -> {}
@@ -84,14 +91,13 @@ fun Sheets(vm: ConverterViewModel, requestNotifications: () -> Unit) {
 }
 
 @Composable
-private fun Title(text: String, modifier: Modifier = Modifier) {
+internal fun Title(text: String, modifier: Modifier = Modifier) {
     Text(text, color = Pal.current.text, fontSize = 24.sp, fontWeight = FontWeight.Light, modifier = modifier.padding(horizontal = 24.dp, vertical = 8.dp))
 }
 
 @Composable
-private fun Picker(vm: ConverterViewModel, title: String, selected: String?, onPick: (String) -> Unit) {
+fun CurrencyPicker(recentCodes: List<String>, title: String, selected: String?, onPick: (String) -> Unit) {
     val pal = Pal.current
-    val settings by vm.settings.collectAsState()
     var query by remember { mutableStateOf("") }
 
     val q = query.trim()
@@ -99,8 +105,8 @@ private fun Picker(vm: ConverterViewModel, title: String, selected: String?, onP
         if (q.isEmpty()) Currencies.all
         else Currencies.all.filter { it.code.contains(q, true) || it.name.contains(q, true) }
     }
-    val recents = remember(settings.recents, q) {
-        if (q.isEmpty()) settings.recents.mapNotNull { c -> Currencies.all.firstOrNull { it.code == c } }.take(4) else emptyList()
+    val recents = remember(recentCodes, q) {
+        if (q.isEmpty()) recentCodes.mapNotNull { c -> Currencies.all.firstOrNull { it.code == c } }.take(4) else emptyList()
     }
 
     Column(Modifier.fillMaxHeight(0.92f)) {
@@ -139,7 +145,7 @@ private fun Picker(vm: ConverterViewModel, title: String, selected: String?, onP
 }
 
 @Composable
-private fun Header(text: String) {
+internal fun Header(text: String) {
     Text(text.uppercase(), color = Pal.current.subtext, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 4.dp))
 }
 
@@ -224,7 +230,7 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
                 ) { Text(if (refreshing) "Refreshing…" else "Refresh now", color = pal.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
             }
             item {
-                Text("robFX 1.0.4 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
+                Text("robFX 1.1.0 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
             }
         }
     }

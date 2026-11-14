@@ -31,6 +31,8 @@ import kotlin.coroutines.cancellation.CancellationException
 fun AppRoot(
     screen: Screen,
     editing: Boolean,
+    unitTabOpen: Boolean,
+    onCloseUnitTab: () -> Unit,
     onBackToMarkets: () -> Unit,
     onStopEditing: () -> Unit,
     markets: @Composable () -> Unit,
@@ -53,6 +55,8 @@ fun AppRoot(
         }
     }
     BackHandler(enabled = screen == Screen.Home && editing, onBack = onStopEditing)
+    // Unit price is a tab of the home screen: back goes to Markets before it would ever leave the app.
+    BackHandler(enabled = screen == Screen.Home && unitTabOpen, onBack = onCloseUnitTab)
 
     val width = LocalConfiguration.current.screenWidthDp.dp
     if (screen == Screen.Converter && progress > 0f) {

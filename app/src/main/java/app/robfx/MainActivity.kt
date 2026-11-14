@@ -31,6 +31,11 @@ import app.robfx.ui.HomeActions
 import app.robfx.ui.HomeContent
 import app.robfx.ui.HomeUi
 import app.robfx.ui.Sheets
+import app.robfx.ui.UnitPriceScreen
+import app.robfx.unitprice.Comparison
+import app.robfx.unitprice.UnitGroup
+import app.robfx.unitprice.Units
+import app.robfx.data.Currencies
 import app.robfx.data.WatchPair
 import app.robfx.ui.AppRoot
 import app.robfx.update.UpdateState
@@ -41,6 +46,17 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
+    private val unitVm: UnitPriceViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val initial = runBlocking { container.settings.unitComparison() }
+                    ?: Comparison.fresh(UnitGroup.Weight, Currencies.localPair().first, Units.isUs())
+                return UnitPriceViewModel(application, initial) as T
+            }
+        }
+    }
+
     private val vm: ConverterViewModel by viewModels {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -68,7 +84,7 @@ class MainActivity : ComponentActivity() {
             val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
             LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshIfStale(); container.updater.recheckPermission() }
             LifecycleEventEffect(Lifecycle.Event.ON_START) { container.updater.visible = true }
-            LifecycleEventEffect(Lifecycle.Event.ON_STOP) { container.updater.visible = false }
+            LifecycleEventEffect(Lifecycle.Event.ON_STOP) { container.updater.visible = false; unitVm.leave() }
 
             RobFxTheme(settings.theme, settings.dynamicColor) {
                 val screen by vm.screen.collectAsState()
@@ -76,6 +92,12 @@ class MainActivity : ComponentActivity() {
                     if (Build.VERSION.SDK_INT >= 33 && !Notifier.canPost(this)) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 val editing by vm.editing.collectAsState()
+                val tab by vm.homeTab.collectAsState()
+                // Leaving the unit price tab is the moment a comparison counts as done, so it goes into the recents then.
+                val selectTab: (HomeTab) -> Unit = { t ->
+                    if (t == HomeTab.Markets) unitVm.leave()
+                    vm.selectTab(t)
+                }
                 // Wide windows (tablets, unfolded foldables, landscape) get a centred column instead of a stretched phone UI.
                 androidx.compose.foundation.layout.BoxWithConstraints(
                     Modifier.fillMaxSize().background(app.robfx.ui.theme.Pal.current.bg),
@@ -86,27 +108,38 @@ class MainActivity : ComponentActivity() {
                 AppRoot(
                         screen = screen,
                         editing = editing,
+                        unitTabOpen = tab == HomeTab.UnitPrice,
+                        onCloseUnitTab = { selectTab(HomeTab.Markets) },
                         onBackToMarkets = vm::goHome,
                         onStopEditing = { vm.setEditing(false) },
                         markets = {
-                            val rows by vm.rows.collectAsState()
-                            val refreshing by vm.refreshing.collectAsState()
-                            val status = rows.firstNotNullOfOrNull { it.rate }
-                            val update by vm.updateState.collectAsState()
-                            val pending = (update as? UpdateState.Available)?.info?.version ?: (update as? UpdateState.NeedsPermission)?.info?.version
-                            HomeContent(
-                                HomeUi(rows, status, editing, refreshing, pending, settings.sort, settings.sortDescending),
-                                object : HomeActions {
-                                    override fun open(w: WatchPair) = vm.openPair(w)
-                                    override fun remove(w: WatchPair) = vm.removeWatch(w)
-                                    override fun toggleEditing() = vm.toggleEditing()
-                                    override fun startEditing() = vm.setEditing(true)
-                                    override fun tapSort(s: WatchSort) = vm.tapSort(s)
-                                    override fun add() = vm.startAdd()
-                                    override fun refresh() = vm.refresh()
-                                    override fun sheet(s: Sheet) = vm.open(s)
-                                },
-                            )
+                            if (tab == HomeTab.UnitPrice) {
+                                UnitPriceScreen(unitVm, settings.haptics, onSelectTab = selectTab, onOpenSettings = { vm.open(Sheet.Settings) })
+                            } else {
+                                val rows by vm.rows.collectAsState()
+                                val refreshing by vm.refreshing.collectAsState()
+                                val status = rows.firstNotNullOfOrNull { it.rate }
+                                val update by vm.updateState.collectAsState()
+                                val pending = (update as? UpdateState.Available)?.info?.version ?: (update as? UpdateState.NeedsPermission)?.info?.version
+                                Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
+                                    Box(Modifier.widthIn(max = 640.dp).fillMaxHeight()) {
+                                        HomeContent(
+                                            HomeUi(rows, status, editing, refreshing, pending, settings.sort, settings.sortDescending),
+                                            object : HomeActions {
+                                                override fun open(w: WatchPair) = vm.openPair(w)
+                                                override fun remove(w: WatchPair) = vm.removeWatch(w)
+                                                override fun toggleEditing() = vm.toggleEditing()
+                                                override fun startEditing() = vm.setEditing(true)
+                                                override fun tapSort(s: WatchSort) = vm.tapSort(s)
+                                                override fun selectTab(t: HomeTab) = selectTab(t)
+                                                override fun add() = vm.startAdd()
+                                                override fun refresh() = vm.refresh()
+                                                override fun sheet(s: Sheet) = vm.open(s)
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         },
                         converter = { ConverterScreen(vm = vm, showSheets = false, requestNotifications = notify) },
                     )

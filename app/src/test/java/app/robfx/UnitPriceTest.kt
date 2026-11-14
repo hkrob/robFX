@@ -1,0 +1,216 @@
+package app.robfx
+
+import app.robfx.data.PairRate
+import app.robfx.data.Quality
+import app.robfx.data.source.json
+import app.robfx.unitprice.Comparison
+import app.robfx.unitprice.Evaluation
+import app.robfx.unitprice.ItemResult
+import app.robfx.unitprice.Recents
+import app.robfx.unitprice.SavedComparison
+import app.robfx.unitprice.UnitFormat
+import app.robfx.unitprice.UnitGroup
+import app.robfx.unitprice.UnitItem
+import app.robfx.unitprice.UnitPrice
+import app.robfx.unitprice.Units
+import app.robfx.unitprice.Verdict
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class UnitPriceTest {
+    private val noRates: (String, String) -> PairRate? = { _, _ -> null }
+
+    private fun cmp(vararg items: UnitItem, group: UnitGroup = UnitGroup.Weight, basis: String = "100g", home: String = "HKD") =
+        Comparison(group = group, basis = basis, currency = home, items = items.toList())
+
+    private fun g(price: String, size: String, qty: String = "", unit: String = "g", ccy: String = "HKD") = UnitItem(price, size, qty, unit, ccy)
+
+    private fun ready(e: Evaluation, i: Int) = e.items[i] as ItemResult.Ready
+
+    @Test fun exactUnitDefinitions() {
+        fun f(id: String) = Units.byId.getValue(id).factor
+        assertEquals(453.59237, f("lb"), 1e-9)
+        assertEquals(28.349523125, f("oz"), 1e-9)
+        assertEquals(25.4, f("in"), 1e-9)
+        assertEquals(304.8, f("ft"), 1e-9)
+        assertEquals(914.4, f("yd"), 1e-9)
+        assertEquals(29.5735295625, f("floz_us"), 1e-9)
+        assertEquals(28.4130625, f("floz_uk"), 1e-9)
+        assertEquals(3785.411784, f("gal_us"), 1e-9)
+        assertEquals(4546.09, f("gal_uk"), 1e-9)
+        assertEquals(473.176473, f("pint_us"), 1e-9)
+        assertEquals(568.26125, f("pint_uk"), 1e-9)
+        assertEquals(946.352946, f("qt_us"), 1e-9)
+        assertEquals(236.5882365, f("cup_us"), 1e-9)
+        assertEquals(12.0, f("dozen"), 0.0)
+    }
+
+    @Test fun everyUnitBelongsToAGroupWithBases() {
+        for (g in UnitGroup.entries) {
+            assertTrue(Units.ofGroup(g).isNotEmpty())
+            assertTrue(Units.bases.getValue(g).isNotEmpty())
+            Units.bases.getValue(g).forEach { assertEquals(g, Units.byId.getValue(it.unitId).group) }
+            assertEquals(g, Units.byId.getValue(Units.defaultUnit(g, us = false)).group)
+            assertEquals(g, Units.byId.getValue(Units.defaultUnit(g, us = true)).group)
+        }
+        assertTrue(Units.byId["pack"] == null)
+    }
+
+    @Test fun theBriefsExample() {
+        // $5 for 100 g against $7 for 150 g: 5.00 vs 4.667 per 100 g, so B wins by 6.7%.
+        val e = UnitPrice.evaluate(cmp(g("5", "100"), g("7", "150")), noRates)
+        assertEquals(5.0, ready(e, 0).unitPrice, 1e-9)
+        assertEquals(4.6667, ready(e, 1).unitPrice, 1e-4)
+        val v = e.verdict as Verdict.Winner
+        assertEquals(1, v.index)
+        assertEquals(1 - 4.66666667 / 5.0, v.savings, 1e-6)
+        assertEquals(1, ready(e, 1).rank.let { 1 - it })
+        assertEquals(0.07142857, ready(e, 0).percentAboveBest, 1e-6)
+    }
+
+    @Test fun mixedUnitsInTheSameGroup() {
+        // 1 lb for 10 vs 400 g for 8: per 100 g that is 2.2046 vs 2.0, so the 400 g wins.
+        val e = UnitPrice.evaluate(cmp(g("10", "1", unit = "lb"), g("8", "400")), noRates)
+        assertEquals(10.0 / 453.59237 * 100, ready(e, 0).unitPrice, 1e-9)
+        assertEquals(1, (e.verdict as Verdict.Winner).index)
+    }
+
+    @Test fun multipackQuantityMultipliesTheSize() {
+        val six = UnitPrice.evaluate(cmp(g("12", "330", qty = "6", unit = "ml"), g("2", "330", unit = "ml"), group = UnitGroup.Volume, basis = "100ml"), noRates)
+        assertEquals(ready(six, 1).unitPrice, ready(six, 0).unitPrice, 1e-9)
+        assertEquals(1980.0, ready(six, 0).totalBase, 1e-9)
+        assertTrue(six.verdict is Verdict.Tie)
+    }
+
+    @Test fun expressionsWorkInEveryField() {
+        val e = UnitPrice.evaluate(cmp(g("2+3", "50×2"), g("7", "150")), noRates)
+        assertEquals(5.0, ready(e, 0).unitPrice, 1e-9)
+    }
+
+    @Test fun incompleteOrZeroItemsAreExcludedNotTreatedAsFree() {
+        val e = UnitPrice.evaluate(cmp(g("", "100"), g("5", ""), g("0", "100"), g("5", "0"), g("5", "100", qty = "0")), noRates)
+        assertTrue(e.items.all { it is ItemResult.Incomplete })
+        assertEquals(Verdict.None, e.verdict)
+        val one = UnitPrice.evaluate(cmp(g("5", "100"), g("", "")), noRates)
+        assertEquals(Verdict.None, one.verdict)
+        assertEquals(1, one.readyCount)
+    }
+
+    @Test fun crossGroupUnitsCantBeCompared() {
+        val e = UnitPrice.evaluate(cmp(g("5", "100"), g("5", "100", unit = "ml")), noRates)
+        assertTrue(e.items[1] is ItemResult.Mismatch)
+        assertEquals(Verdict.None, e.verdict)
+    }
+
+    @Test fun nearTieIsNoWinner() {
+        val e = UnitPrice.evaluate(cmp(g("5", "100"), g("5.02", "100")), noRates)
+        assertTrue(e.verdict is Verdict.Tie)
+        assertEquals(listOf(0, 1), (e.verdict as Verdict.Tie).indices)
+        val clear = UnitPrice.evaluate(cmp(g("5", "100"), g("5.1", "100")), noRates)
+        assertTrue(clear.verdict is Verdict.Winner)
+    }
+
+    @Test fun threeItemsRankAndTheHeadlineIsAgainstTheRunnerUp() {
+        val e = UnitPrice.evaluate(cmp(g("9", "100"), g("5", "100"), g("6", "100")), noRates)
+        assertEquals(listOf(2, 0, 1), listOf(ready(e, 0).rank, ready(e, 1).rank, ready(e, 2).rank))
+        val v = e.verdict as Verdict.Winner
+        assertEquals(1, v.index)
+        assertEquals(1 - 5.0 / 6.0, v.savings, 1e-9)
+    }
+
+    @Test fun foreignPricesConvertAndMissingRatesAreVisibleNotOneToOne() {
+        val usdToHkd = PairRate(7.8, emptyMap(), 0.0, Quality.Consensus, 0)
+        val rate: (String, String) -> PairRate? = { f, t -> if (f == "USD" && t == "HKD") usdToHkd else null }
+        val e = UnitPrice.evaluate(cmp(g("10", "100", ccy = "USD"), g("70", "100", ccy = "HKD")), rate)
+        assertEquals(78.0, ready(e, 0).unitPrice, 1e-9)
+        assertTrue(ready(e, 0).converted)
+        assertEquals(1, (e.verdict as Verdict.Winner).index)
+
+        val missing = UnitPrice.evaluate(cmp(g("10", "100", ccy = "EUR"), g("70", "100")), rate)
+        assertEquals(ItemResult.NoRate("EUR"), missing.items[0])
+        assertEquals(Verdict.None, missing.verdict)
+    }
+
+    @Test fun staleRatesAreFlagged() {
+        val stale = PairRate(7.8, emptyMap(), 0.0, Quality.Stale, 0)
+        val e = UnitPrice.evaluate(cmp(g("10", "100", ccy = "USD"), g("70", "100")), { _, _ -> stale })
+        assertTrue(ready(e, 0).stale)
+        assertTrue(!ready(e, 1).stale)
+    }
+
+    @Test fun changingBasisChangesTheNumbersNotTheWinner() {
+        val items = arrayOf(g("5", "100"), g("7", "150"))
+        val kg = UnitPrice.evaluate(cmp(*items, basis = "kg"), noRates)
+        assertEquals(50.0, ready(kg, 0).unitPrice, 1e-9)
+        val lb = UnitPrice.evaluate(cmp(*items, basis = "lb"), noRates)
+        assertEquals(5.0 / 100 * 453.59237, ready(lb, 0).unitPrice, 1e-9)
+        assertEquals(1, (kg.verdict as Verdict.Winner).index)
+        assertEquals(1, (lb.verdict as Verdict.Winner).index)
+    }
+
+    @Test fun groupAndItemEditingRules() {
+        val c = Comparison.fresh(UnitGroup.Weight, "HKD", us = false)
+        assertEquals(2, c.items.size)
+        assertEquals("g", c.items[0].unit)
+        assertEquals("100g", c.basis)
+
+        val added = c.copy(items = listOf(c.items[0].copy(unit = "lb", currency = "USD"), c.items[1])).withItemAdded()
+        assertEquals("lb", added.items[2].unit)
+        assertEquals("USD", added.items[2].currency)
+
+        var many = c
+        repeat(10) { many = many.withItemAdded() }
+        assertEquals(Comparison.MAX_ITEMS, many.items.size)
+        assertEquals(2, c.withItemRemoved(0).items.size)
+        assertEquals(5, many.withItemRemoved(5).items.size)
+
+        val vol = c.withGroup(UnitGroup.Volume, us = false)
+        assertEquals("ml", vol.items[0].unit)
+        assertEquals("100ml", vol.basis)
+        assertEquals("oz", Comparison.fresh(UnitGroup.Weight, "USD", us = true).items[0].unit)
+    }
+
+    @Test fun homeCurrencyChangeCarriesAlongItemsPricedInIt() {
+        val c = cmp(g("1", "1", ccy = "HKD"), g("1", "1", ccy = "USD")).withHomeCurrency("EUR")
+        assertEquals("EUR", c.currency)
+        assertEquals(listOf("EUR", "USD"), c.items.map { it.currency })
+    }
+
+    @Test fun formatting() {
+        assertEquals("4.67", UnitFormat.number(4.6667))
+        assertEquals("1,234.50", UnitFormat.number(1234.5))
+        assertEquals("0.0523", UnitFormat.number(0.05234))
+        assertEquals("6.7%", UnitFormat.plainPercent(0.0667))
+        assertEquals("12%", UnitFormat.plainPercent(0.12))
+        val ml = Units.byId.getValue("ml")
+        assertEquals("6 × 330 ml = 1,980 ml", UnitFormat.total("6", "330", ml))
+        assertEquals(null, UnitFormat.total("", "330", ml))
+        assertEquals(null, UnitFormat.total("1", "330", ml))
+    }
+
+    @Test fun comparisonSurvivesJson() {
+        val c = cmp(g("5", "100"), g("7", "150", qty = "2", unit = "kg", ccy = "USD"))
+        assertEquals(c, json.decodeFromString(Comparison.serializer(), json.encodeToString(Comparison.serializer(), c)))
+    }
+
+    @Test fun recentsDedupeCapAndOrder() {
+        val c1 = cmp(g("5", "100"), g("7", "150"))
+        fun s(t: Long, c: Comparison) = SavedComparison(t, "x$t", c)
+        var list = emptyList<SavedComparison>()
+        list = Recents.add(list, s(1, c1))
+        list = Recents.add(list, s(2, cmp(g("1", "1"), g("2", "2"))))
+        list = Recents.add(list, s(3, c1))
+        assertEquals(listOf(3L, 2L), list.map { it.savedAt })
+        repeat(20) { i -> list = Recents.add(list, s(100L + i, cmp(g("$i", "1"), g("2", "2")))) }
+        assertEquals(Recents.CAP, list.size)
+        assertEquals(119L, list.first().savedAt)
+    }
+
+    @Test fun summaryNamesTheBestItem() {
+        val c = cmp(g("5", "100"), g("7", "150"))
+        val e = UnitPrice.evaluate(c, noRates)
+        assertTrue(Recents.summary(c, e).contains("best Item B"))
+        assertTrue(Recents.summary(c, e).startsWith("Weight · 2 items"))
+    }
+}

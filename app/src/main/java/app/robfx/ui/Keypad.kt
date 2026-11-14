@@ -57,6 +57,8 @@ fun Keypad(
     onKey: (String) -> Unit,
     onSwap: () -> Unit,
     modifier: Modifier = Modifier,
+    swapIcon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Outlined.SwapVert,
+    swapDesc: String = "Swap currencies",
 ) {
     val pal = Pal.current
     val view = LocalView.current
@@ -100,8 +102,8 @@ fun Keypad(
                         is Key.Icon -> Cell(m, pal.key, key.desc, { onKey(key.send) }, key.long?.let { l -> { onKey(l) } }) {
                             Icon(key.vector, contentDescription = null, tint = pal.accent, modifier = Modifier.padding(2.dp))
                         }
-                        Key.Swap -> Cell(m, pal.key, "Swap currencies", onSwap) {
-                            Icon(Icons.Outlined.SwapVert, contentDescription = null, tint = pal.accent)
+                        Key.Swap -> Cell(m, pal.key, swapDesc, onSwap) {
+                            Icon(swapIcon, contentDescription = null, tint = pal.accent)
                         }
                         Key.Equals -> Cell(m, pal.accent, "Equals", { onKey("=") }) {
                             Text("=", color = pal.onAccent, fontSize = 34.sp, fontWeight = FontWeight.Light)

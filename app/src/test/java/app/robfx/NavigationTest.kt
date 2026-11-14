@@ -30,10 +30,13 @@ class NavigationTest {
 
     private var screen by mutableStateOf(Screen.Converter)
     private var editing by mutableStateOf(false)
+    private var unitTab by mutableStateOf(false)
 
     private fun content() = rule.setContent {
         AppRoot(
             screen, editing,
+            unitTabOpen = unitTab,
+            onCloseUnitTab = { unitTab = false },
             onBackToMarkets = { screen = Screen.Home },
             onStopEditing = { editing = false },
             markets = { Text("MARKETS") },
@@ -64,6 +67,17 @@ class NavigationTest {
         assertEquals(Screen.Home, screen)
     }
 
+    @Test fun backOnTheUnitPriceTabReturnsToMarketsBeforeAnythingElse() {
+        screen = Screen.Home
+        unitTab = true
+        content()
+        back()
+        assertEquals(false, unitTab)
+        assertEquals(Screen.Home, screen)
+        // And now Markets is plain again, so the next back belongs to the system.
+        assertEquals(false, rule.activity.onBackPressedDispatcher.hasEnabledCallbacks())
+    }
+
     @Test fun backOnPlainMarketsIsLeftToTheSystem() {
         screen = Screen.Home
         content()
@@ -85,6 +99,7 @@ class MarketsGesturesTest {
         override fun toggleEditing() { log += "toggle" }
         override fun startEditing() { log += "startEditing" }
         override fun tapSort(s: WatchSort) { log += "sort $s" }
+        override fun selectTab(t: HomeTab) { log += "tab $t" }
         override fun add() { log += "add" }
         override fun refresh() { log += "refresh" }
         override fun sheet(s: Sheet) { log += "sheet" }

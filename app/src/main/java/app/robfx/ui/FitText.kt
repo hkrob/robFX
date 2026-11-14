@@ -29,10 +29,11 @@ fun FitText(
     modifier: Modifier = Modifier,
     fontWeight: FontWeight = FontWeight.Light,
     textAlign: TextAlign = TextAlign.End,
+    alignment: Alignment = Alignment.CenterEnd,
 ) {
     val measurer = rememberTextMeasurer()
     val base = LocalTextStyle.current
-    BoxWithConstraints(modifier, contentAlignment = Alignment.CenterEnd) {
+    BoxWithConstraints(modifier, contentAlignment = alignment) {
         val maxPx = constraints.maxWidth
         val (text, size) = remember(candidates, maxPx, maxSize, preferredMin, hardMin, fontWeight, base) {
             fun width(t: String, s: Int) =

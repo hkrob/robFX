@@ -75,6 +75,7 @@ class ScreenshotTest {
         override fun toggleEditing() {}
         override fun startEditing() {}
         override fun tapSort(s: WatchSort) {}
+        override fun selectTab(t: HomeTab) {}
         override fun add() {}
         override fun refresh() {}
         override fun sheet(s: Sheet) {}

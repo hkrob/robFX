@@ -38,6 +38,9 @@ enum class Sheet { None, FromPicker, ToPicker, Alerts, Settings, AddFrom, AddTo 
 
 enum class Screen { Home, Converter }
 
+/** The two halves of the home screen. */
+enum class HomeTab { Markets, UnitPrice }
+
 /** One line of the watchlist. [points] is the past week, used for the sparkline and the weekly change. */
 data class WatchRow(val pair: WatchPair, val rate: PairRate?, val points: List<HistoryPoint>?) {
     val change: Double?
@@ -66,6 +69,14 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
 
     private val _screen = MutableStateFlow(Screen.Home)
     val screen: StateFlow<Screen> = _screen
+
+    private val _homeTab = MutableStateFlow(HomeTab.Markets)
+    val homeTab: StateFlow<HomeTab> = _homeTab
+
+    fun selectTab(t: HomeTab) {
+        _homeTab.value = t
+        if (t != HomeTab.Markets) _editing.value = false
+    }
 
     private val _editing = MutableStateFlow(false)
     val editing: StateFlow<Boolean> = _editing
