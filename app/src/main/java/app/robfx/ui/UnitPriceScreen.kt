@@ -181,7 +181,7 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
         is UnitSheet.Label -> AppSheet(close) {
             LabelEditor(
                 title = "Name ${UnitPrice.itemLabel(s.item)}", placeholder = "e.g. Woolworths, Costco, Online", max = Comparison.MAX_LABEL,
-                current = comparison.items.getOrNull(s.item)?.label.orEmpty(), suggestions = labelSuggestions, suggestionsHeader = "Shops used before",
+                current = comparison.items.getOrNull(s.item)?.label.orEmpty(), suggestions = labelSuggestions, suggestionsHeader = "Recently used",
             ) { vm.setLabel(s.item, it); close() }
         }
         UnitSheet.Tag -> AppSheet(close) {
@@ -511,7 +511,7 @@ private fun UnitPicker(group: UnitGroup, selected: String?, onPick: (String) -> 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun TagEditor(current: String, suggestions: List<String>, onSave: (String) -> Unit) =
-    LabelEditor("Tag this comparison", "e.g. Pasta, Milk, Hardware store", Comparison.MAX_TAG, current, suggestions, "Used before", onSave)
+    LabelEditor("Tag this comparison", "e.g. Pasta, Milk, Hardware store", Comparison.MAX_TAG, current, suggestions, "Recently used", onSave)
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable

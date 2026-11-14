@@ -31,6 +31,8 @@ import java.io.File
 abstract class FlowBase {
     @get:Rule val rule = createEmptyComposeRule()
 
+    @org.junit.Before fun cleanSlate() = TestStorage.reset()
+
     protected fun launch(): ActivityScenario<MainActivity> {
         val s = ActivityScenario.launch(MainActivity::class.java)
         rule.waitForIdle()
@@ -53,10 +55,7 @@ abstract class FlowBase {
         rule.onRoot().captureRoboImage("build/screens/$name.png")
     }
 
-    protected fun seed(c: Comparison) {
-        val app = ApplicationProvider.getApplicationContext<Context>().container
-        runBlocking { app.settings.setUnitComparison(c) }
-    }
+    protected fun seed(c: Comparison) = TestStorage.seed(c)
 
     protected fun tap(desc: String) { rule.onNodeWithContentDescription(desc).performClick(); rule.waitForIdle() }
 }
@@ -171,6 +170,33 @@ class SessionFlow : FlowBase() {
         shot("flow_named")
     }
 
+    @Test fun namesYouJustTypedAreOfferedStraightAway() {
+        launch(); openUnitTab()
+        // Name Item A; nothing has been saved to history yet.
+        rule.onNodeWithText("Item A").performClick(); rule.waitForIdle()
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Coles")
+        rule.onNodeWithText("Save").performClick(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(500)
+        // Naming Item B offers it as a recent, without leaving the tab.
+        rule.onNodeWithText("Item B").performClick(); rule.waitForIdle()
+        // The list comes from storage on background threads, so wait for it rather than for the fake clock.
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("RECENTLY USED").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("RECENTLY USED").assertIsDisplayed()
+        // One chip in the sheet plus the name already on Item A's card.
+        org.junit.Assert.assertEquals(2, rule.onAllNodesWithText("Coles").fetchSemanticsNodes().size)
+        shot("flow_recent_names")
+    }
+
+    @Test fun tagsYouJustTypedAreOfferedStraightAway() {
+        launch(); openUnitTab()
+        rule.onNodeWithText("Tag").performClick(); rule.waitForIdle()
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Pasta night")
+        rule.onNodeWithText("Save").performClick(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(500)
+        // The chip now carries the tag; open it again and the same tag is offered in the list of recents.
+        rule.onNodeWithText("Pasta night").performClick(); rule.waitForIdle()
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("RECENTLY USED").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("RECENTLY USED").assertIsDisplayed()
+    }
+
     @Test fun rotationKeepsTheTabAndTheKeypad() {
         val s = launch(); openUnitTab()
         s.recreate(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)
@@ -194,10 +220,15 @@ class LandscapeFlow : FlowBase() {
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], application = TestApp::class, qualifiers = "w412dp-h892dp-port-xxhdpi")
 class BusyBackgroundFlow : FlowBase() {
+    // Held until the test ends, then released at once, so the saturation can't bleed into whichever test runs next.
+    private val gate = java.util.concurrent.CountDownLatch(1)
+
+    @org.junit.After fun releaseThreads() = gate.countDown()
+
     @Test fun tappingUnitPriceDoesNotWaitForBusyIoThreads() {
         launch()
-        // 100 jobs that each hold an IO thread for 4s: more than the pool has, like a burst of slow requests on a bad connection.
-        repeat(100) { kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) { Thread.sleep(4_000) } }
+        // 100 jobs that each hold an IO thread: more than the pool has, like a burst of slow requests on a bad connection.
+        repeat(100) { kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) { gate.await(8, java.util.concurrent.TimeUnit.SECONDS) } }
         Thread.sleep(500)
         val t0 = System.nanoTime()
         openUnitTab()

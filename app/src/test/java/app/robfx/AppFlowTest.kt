@@ -23,17 +23,11 @@ class TestApp : RobFxApp() {
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], application = TestApp::class, qualifiers = "w412dp-h892dp-port-xxhdpi")
-class AppFlowTest {
-    @get:Rule val rule = createAndroidComposeRule<MainActivity>()
-
+class AppFlowTest : FlowBase() {
     @Test fun openingUnitPriceShowsTheKeypad() {
-        rule.waitForIdle()
-        rule.onNodeWithText("Unit price").performClick()
-        rule.waitForIdle()
-        rule.mainClock.advanceTimeBy(1500)
-        rule.onNodeWithContentDescription("Hide keypad").assertIsDisplayed()
-        rule.onNodeWithContentDescription("7").assertIsDisplayed()
-        File("build/screens").mkdirs()
-        rule.onRoot().captureRoboImage("build/screens/flow_unit_price.png")
+        launch()
+        openUnitTab()
+        assertKeypad()
+        shot("flow_unit_price")
     }
 }

@@ -67,6 +67,8 @@ class SettingsStore(private val context: Context) {
         val sortDesc = booleanPreferencesKey("watch_sort_desc")
         val unitComparison = stringPreferencesKey("unit_comparison")
         val unitRecents = stringPreferencesKey("unit_recents")
+        val recentLabels = stringPreferencesKey("recent_labels")
+        val recentTags = stringPreferencesKey("recent_tags")
         val lastUpdateCheck = androidx.datastore.preferences.core.longPreferencesKey("update_checked_at")
         val lastNotified = stringPreferencesKey("update_notified")
     }
@@ -133,6 +135,23 @@ class SettingsStore(private val context: Context) {
         val cur = p[K.unitRecents]?.let { runCatching { json.decodeFromString(app.robfx.unitprice.SavedFile.serializer(), it).items }.getOrNull() } ?: emptyList()
         p[K.unitRecents] = json.encodeToString(app.robfx.unitprice.SavedFile.serializer(), app.robfx.unitprice.SavedFile(items = transform(cur)))
     }
+
+    // Names you typed, newest first, kept as soon as you save them: not waiting for a comparison to finish and reach history.
+    private fun names(raw: String?): List<String> = raw?.split('\n')?.filter { it.isNotBlank() } ?: emptyList()
+
+    val recentLabels: Flow<List<String>> = context.dataStore.data.map { names(it[K.recentLabels]) }
+    val recentTags: Flow<List<String>> = context.dataStore.data.map { names(it[K.recentTags]) }
+
+    suspend fun addRecentLabel(v: String) = context.dataStore.edit {
+        it[K.recentLabels] = app.robfx.unitprice.Recents.mru(names(it[K.recentLabels]), v).joinToString("\n")
+    }
+
+    suspend fun addRecentTag(v: String) = context.dataStore.edit {
+        it[K.recentTags] = app.robfx.unitprice.Recents.mru(names(it[K.recentTags]), v).joinToString("\n")
+    }
+
+    /** Wipes every saved preference. Tests use it to start from a clean slate; DataStore is shared by the whole process. */
+    suspend fun clearAll() = context.dataStore.edit { it.clear() }
 
     suspend fun setAutoUpdate(v: Boolean) = context.dataStore.edit { it[K.autoUpdate] = v }
     suspend fun lastUpdateCheck(): Long = context.dataStore.data.map { it[K.lastUpdateCheck] ?: 0L }.first()

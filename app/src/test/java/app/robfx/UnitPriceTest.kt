@@ -283,6 +283,22 @@ class UnitPriceTest {
         assertEquals(listOf("Coles", "Aldi"), Recents.labels(list, limit = 2))
     }
 
+    @Test fun recentlyUsedListPutsTheLatestFirstWithoutDuplicates() {
+        assertEquals(listOf("Coles"), Recents.mru(emptyList(), "Coles"))
+        assertEquals(listOf("Aldi", "Coles"), Recents.mru(listOf("Coles"), "Aldi"))
+        // Re-using a name moves it to the front, whatever its case.
+        assertEquals(listOf("coles", "Aldi"), Recents.mru(listOf("Aldi", "Coles"), "coles"))
+        assertEquals(listOf("Aldi", "Coles"), Recents.mru(listOf("Aldi", "Coles"), "  ".trim()))
+        val many = (1..30).fold(emptyList<String>()) { acc, i -> Recents.mru(acc, "shop$i") }
+        assertEquals(Recents.NAME_CAP, many.size)
+        assertEquals("shop30", many.first())
+    }
+
+    @Test fun mergeKeepsPriorityOrderAndDropsRepeats() {
+        assertEquals(listOf("Coles", "Aldi", "Costco"), Recents.merge(listOf("Coles", "Aldi"), listOf("aldi", "Costco", "")))
+        assertEquals(listOf("a", "b"), Recents.merge(listOf("a", "b", "c"), limit = 2))
+    }
+
     @Test fun summaryUsesTheShopNameWhenThereIsOne() {
         val c = cmp(g("5", "100"), g("7", "150")).withLabel(1, "Costco")
         assertTrue(Recents.summary(c, UnitPrice.evaluate(c, noRates)).contains("best Costco"))

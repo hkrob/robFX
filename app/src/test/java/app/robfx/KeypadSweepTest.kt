@@ -35,6 +35,7 @@ class KeypadSweepTest {
     )
 
     @Test fun everyKeyIsOnScreenAndUsableOnEveryShape() {
+        TestStorage.reset()
         val problems = mutableListOf<String>()
         for (s in shapes) {
             RuntimeEnvironment.setQualifiers("+${s.q}")

@@ -312,6 +312,16 @@ object Recents {
     fun add(list: List<SavedComparison>, saved: SavedComparison): List<SavedComparison> =
         (listOf(saved) + list.filterNot { it.comparison.withoutNames() == saved.comparison.withoutNames() }).take(CAP)
 
+    const val NAME_CAP = 12
+
+    /** A most-recently-used list: [value] goes first, any earlier spelling of it (ignoring case) is dropped, capped. */
+    fun mru(list: List<String>, value: String, cap: Int = NAME_CAP): List<String> =
+        if (value.isBlank()) list else (listOf(value) + list.filterNot { it.equals(value, ignoreCase = true) }).take(cap)
+
+    /** Several suggestion sources in priority order, one entry per spelling ignoring case. */
+    fun merge(vararg lists: List<String>, limit: Int = 10): List<String> =
+        lists.flatMap { it }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.take(limit)
+
     /** Item labels already used (shop names), most recent first, one per spelling ignoring case: the quick picks. */
     fun labels(list: List<SavedComparison>, limit: Int = 8): List<String> =
         list.flatMap { s -> s.comparison.items.map { it.label } }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.take(limit)

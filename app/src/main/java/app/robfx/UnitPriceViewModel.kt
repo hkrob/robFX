@@ -50,8 +50,13 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
     val keypadOpen: StateFlow<Boolean> = _keypadOpen
 
     val recents: StateFlow<List<SavedComparison>> = c.settings.unitRecents.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val tagSuggestions: StateFlow<List<String>> = c.settings.unitRecents.map { Recents.tags(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val labelSuggestions: StateFlow<List<String>> = c.settings.unitRecents.map { Recents.labels(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    // What you typed most recently comes first, then anything found in saved comparisons.
+    val tagSuggestions: StateFlow<List<String>> = combine(c.settings.recentTags, c.settings.unitRecents) { mru, history ->
+        Recents.merge(mru, Recents.tags(history, limit = 20))
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val labelSuggestions: StateFlow<List<String>> = combine(c.settings.recentLabels, c.settings.unitRecents) { mru, history ->
+        Recents.merge(mru, Recents.labels(history, limit = 20))
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val currencyRecents: StateFlow<List<String>> = c.settings.settings.map { it.recents }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private fun evaluate(cmp: Comparison): Evaluation = UnitPrice.evaluate(cmp) { f, t -> c.rates.pair(f, t) }
@@ -119,8 +124,15 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setGroup(g: UnitGroup) = edit { if (it.group == g) it else it.withGroup(g, us) }
     fun setBasis(id: String) = edit { it.copy(basis = id) }
-    fun setTag(raw: String) = edit { it.withTag(raw) }
-    fun setLabel(item: Int, raw: String) = edit { it.withLabel(item, raw) }
+    fun setTag(raw: String) {
+        edit { it.withTag(raw) }
+        Comparison.cleanTag(raw).takeIf { it.isNotBlank() }?.let { viewModelScope.launch { c.settings.addRecentTag(it) } }
+    }
+
+    fun setLabel(item: Int, raw: String) {
+        edit { it.withLabel(item, raw) }
+        Comparison.cleanLabel(raw).takeIf { it.isNotBlank() }?.let { viewModelScope.launch { c.settings.addRecentLabel(it) } }
+    }
     fun setUnit(i: Int, unitId: String) = editItem(i) { it.copy(unit = unitId) }
     fun setCurrency(i: Int, code: String) = editItem(i) { it.copy(currency = code) }
     fun setHomeCurrency(code: String) = edit { it.withHomeCurrency(code) }
