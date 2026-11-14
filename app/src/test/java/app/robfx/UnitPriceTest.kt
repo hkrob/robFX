@@ -208,6 +208,43 @@ class UnitPriceTest {
         assertEquals(119L, list.first().savedAt)
     }
 
+    @Test fun tagsAreTidiedAndOptional() {
+        assertEquals("", Comparison.cleanTag("   "))
+        assertEquals("Pasta night", Comparison.cleanTag("  Pasta   night \n"))
+        assertEquals(Comparison.MAX_TAG, Comparison.cleanTag("x".repeat(100)).length)
+        val c = cmp(g("5", "100"), g("7", "150"))
+        assertEquals("", c.tag)
+        assertEquals("Milk", c.withTag(" Milk ").tag)
+        assertEquals("", c.withTag("Milk").withTag("  ").tag)
+    }
+
+    @Test fun tagSurvivesJsonAndOldSavesWithoutOneStillLoad() {
+        val tagged = cmp(g("5", "100"), g("7", "150")).withTag("Pasta")
+        val back = json.decodeFromString(Comparison.serializer(), json.encodeToString(Comparison.serializer(), tagged))
+        assertEquals("Pasta", back.tag)
+        // A comparison saved by 1.1.0 has no "tag" key at all.
+        val old = """{"version":1,"group":"Weight","basis":"100g","currency":"HKD","items":[{"price":"5","size":"100","unit":"g","currency":"HKD"}]}"""
+        assertEquals("", json.decodeFromString(Comparison.serializer(), old).tag)
+    }
+
+    @Test fun retaggingASavedComparisonRenamesItInsteadOfDuplicating() {
+        val plain = cmp(g("5", "100"), g("7", "150"))
+        var list = Recents.add(emptyList(), SavedComparison(1, "s", plain))
+        list = Recents.add(list, SavedComparison(2, "s", plain.withTag("Pasta")))
+        assertEquals(1, list.size)
+        assertEquals("Pasta", list[0].comparison.tag)
+        // A genuinely different comparison with the same tag is its own entry.
+        list = Recents.add(list, SavedComparison(3, "s", cmp(g("1", "1"), g("2", "2")).withTag("Pasta")))
+        assertEquals(2, list.size)
+    }
+
+    @Test fun tagSuggestionsAreRecentFirstAndCaseInsensitivelyUnique() {
+        fun s(t: Long, tag: String) = SavedComparison(t, "s", cmp(g("$t", "1"), g("2", "2")).withTag(tag))
+        val list = listOf(s(4, "Milk"), s(3, ""), s(2, "pasta"), s(1, "Pasta"), s(0, "milk"))
+        assertEquals(listOf("Milk", "pasta"), Recents.tags(list))
+        assertEquals(listOf("Milk"), Recents.tags(list, limit = 1))
+    }
+
     @Test fun summaryNamesTheBestItem() {
         val c = cmp(g("5", "100"), g("7", "150"))
         val e = UnitPrice.evaluate(c, noRates)

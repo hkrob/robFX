@@ -105,9 +105,15 @@ data class Comparison(
     /** The currency every result is shown in. */
     val currency: String,
     val items: List<UnitItem>,
+    /** Optional label ("Pasta", "Hardware store") so a comparison is easy to find again. Defaulted, so older saves still load. */
+    val tag: String = "",
 ) {
     companion object {
         const val MAX_ITEMS = 6
+        const val MAX_TAG = 30
+
+        /** Tidy what was typed: trimmed, runs of spaces collapsed, capped. Blank means "no tag". */
+        fun cleanTag(raw: String): String = raw.trim().replace(Regex("\\s+"), " ").take(MAX_TAG).trim()
 
         fun fresh(group: UnitGroup, home: String, us: Boolean, basis: String? = null): Comparison {
             val item = UnitItem(unit = Units.defaultUnit(group, us), currency = home)
@@ -127,6 +133,8 @@ data class Comparison(
         val first = items.first()
         return copy(items = items + UnitItem(unit = first.unit, currency = first.currency))
     }
+
+    fun withTag(raw: String): Comparison = copy(tag = cleanTag(raw))
 
     fun withItemRemoved(index: Int): Comparison =
         if (items.size <= 2 || index !in items.indices) this else copy(items = items.filterIndexed { i, _ -> i != index })
@@ -280,9 +288,16 @@ data class SavedFile(val version: Int = 1, val items: List<SavedComparison> = em
 object Recents {
     const val CAP = 10
 
-    /** Newest first, identical comparisons collapse into one, and the list never grows past [CAP]. */
+    /**
+     * Newest first, and the list never grows past [CAP]. The same comparison collapses into one entry even if
+     * it was re-tagged in between, so tagging something you already saved renames it instead of duplicating it.
+     */
     fun add(list: List<SavedComparison>, saved: SavedComparison): List<SavedComparison> =
-        (listOf(saved) + list.filterNot { it.comparison == saved.comparison }).take(CAP)
+        (listOf(saved) + list.filterNot { it.comparison.copy(tag = "") == saved.comparison.copy(tag = "") }).take(CAP)
+
+    /** Tags already used, most recent first, one per spelling ignoring case: these become the quick-pick suggestions. */
+    fun tags(list: List<SavedComparison>, limit: Int = 8): List<String> =
+        list.map { it.comparison.tag }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.take(limit)
 
     fun summary(c: Comparison, e: Evaluation): String {
         val best = e.items.withIndex().filter { it.value is ItemResult.Ready }.minByOrNull { (it.value as ItemResult.Ready).rank }

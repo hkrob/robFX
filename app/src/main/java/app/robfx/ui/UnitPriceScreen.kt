@@ -50,6 +50,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.LocalOffer
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
+import app.robfx.unitprice.Recents
 import app.robfx.Field
 import app.robfx.FocusTarget
 import app.robfx.HomeTab
@@ -93,6 +110,7 @@ interface UnitPriceActions {
     fun pickCurrency(item: Int)
     fun pickHomeCurrency()
     fun openRecents()
+    fun pickTag()
     fun openSettings()
     fun selectTab(t: HomeTab)
 }
@@ -103,6 +121,7 @@ private sealed interface UnitSheet {
     data class Currency(val item: Int) : UnitSheet
     data object Home : UnitSheet
     data object Recents : UnitSheet
+    data object Tag : UnitSheet
 }
 
 /** Stateful wrapper: owns which sheet is open, wires everything else to the ViewModel. */
@@ -115,6 +134,7 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
     val recents by vm.recents.collectAsState()
     val status by vm.status.collectAsState()
     val currencyRecents by vm.currencyRecents.collectAsState()
+    val tagSuggestions by vm.tagSuggestions.collectAsState()
     var sheet by remember { mutableStateOf<UnitSheet>(UnitSheet.None) }
 
     val actions = remember(vm) {
@@ -132,6 +152,7 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
             override fun pickCurrency(item: Int) { sheet = UnitSheet.Currency(item) }
             override fun pickHomeCurrency() { sheet = UnitSheet.Home }
             override fun openRecents() { sheet = UnitSheet.Recents }
+            override fun pickTag() { sheet = UnitSheet.Tag }
             override fun openSettings() = onOpenSettings()
             override fun selectTab(t: HomeTab) = onSelectTab(t)
         }
@@ -150,6 +171,9 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
         }
         UnitSheet.Home -> AppSheet(close) {
             CurrencyPicker(currencyRecents, "Compare in", comparison.currency) { vm.setHomeCurrency(it); close() }
+        }
+        UnitSheet.Tag -> AppSheet(close) {
+            TagEditor(comparison.tag, tagSuggestions) { vm.setTag(it); close() }
         }
         UnitSheet.Recents -> AppSheet(close) {
             RecentsList(recents, onPick = { vm.restore(it); close() }, onClear = { vm.clearRecents(); close() })
@@ -188,7 +212,7 @@ fun UnitPriceContent(ui: UnitPriceUi, actions: UnitPriceActions) {
                 UnitGroup.entries.forEach { g -> Chip(g.label, g == cmp.group) { actions.setGroup(g) } }
             }
 
-            VerdictBanner(ui.evaluation, cmp)
+            VerdictBanner(ui.evaluation, cmp, cmp.tag, actions::pickTag)
 
             val listState = rememberLazyListState()
             LaunchedEffect(ui.focus?.item) {
@@ -282,33 +306,51 @@ private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun VerdictBanner(e: Evaluation, c: Comparison) {
+private fun VerdictBanner(e: Evaluation, c: Comparison, tag: String, onTag: () -> Unit) {
     val pal = Pal.current
     val basis = Units.basis(c.group, c.basis)
     val stale = e.items.any { it is ItemResult.Ready && it.stale }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp).height(46.dp), verticalArrangement = Arrangement.Center) {
-        when (val v = e.verdict) {
-            // One yardstick throughout: everything is measured against the best item, so the banner and the badges agree.
-            is Verdict.Winner -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(pal.positive))
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text("${UnitPrice.itemLabel(v.index)} is the best value", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    Text("Next best costs ${UnitFormat.plainPercent(v.nextBestMore)} more per ${basis.label}", color = pal.subtext, fontSize = 12.sp, maxLines = 1)
+    Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, top = 4.dp, bottom = 4.dp).height(46.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+            when (val v = e.verdict) {
+                // One yardstick throughout: everything is measured against the best item, so the banner and the badges agree.
+                is Verdict.Winner -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(pal.positive))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("${UnitPrice.itemLabel(v.index)} is the best value", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Next best costs ${UnitFormat.plainPercent(v.nextBestMore)} more per ${basis.label}", color = pal.subtext, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
+                is Verdict.Tie -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(pal.accent))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Same value", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("  within 0.5%", color = pal.subtext, fontSize = 13.sp)
+                }
+                Verdict.None -> Text(
+                    if (e.readyCount == 1) "Fill in a second item" else "Enter a price and size for two items",
+                    color = pal.subtext, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
-            is Verdict.Tie -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(pal.accent))
-                Spacer(Modifier.width(10.dp))
-                Text("Same value", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text("  within 0.5%", color = pal.subtext, fontSize = 13.sp)
-            }
-            Verdict.None -> Text(
-                if (e.readyCount == 1) "Fill in a second item to compare" else "Enter a price and size for two items",
-                color = pal.subtext, fontSize = 14.sp,
-            )
+            if (stale) Text("Using offline exchange rates", color = pal.warning, fontSize = 11.sp)
         }
-        if (stale) Text("Using offline exchange rates", color = pal.warning, fontSize = 11.sp)
+        TagChip(tag, onTag)
+    }
+}
+
+/** Optional label for the comparison. Quiet when empty, accent-coloured once it says something. */
+@Composable
+private fun TagChip(tag: String, onClick: () -> Unit) {
+    val pal = Pal.current
+    val set = tag.isNotBlank()
+    Row(
+        Modifier.widthIn(max = 120.dp).clip(RoundedCornerShape(50)).background(pal.key).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.LocalOffer, if (set) "Tag: $tag" else "Add a tag", tint = if (set) pal.accent else pal.subtext, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(if (set) tag else "Tag", color = if (set) pal.accent else pal.subtext, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -446,18 +488,95 @@ private fun UnitPicker(group: UnitGroup, selected: String?, onPick: (String) -> 
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun RecentsList(list: List<SavedComparison>, onPick: (SavedComparison) -> Unit, onClear: () -> Unit) {
+internal fun TagEditor(current: String, suggestions: List<String>, onSave: (String) -> Unit) {
     val pal = Pal.current
+    var text by remember { mutableStateOf(current) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    Column(Modifier.imePadding().navigationBarsPadding().padding(bottom = 16.dp)) {
+        Title("Tag this comparison")
+        Row(
+            Modifier.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(pal.key).padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.LocalOffer, null, tint = pal.subtext, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.weight(1f)) {
+                if (text.isEmpty()) Text("e.g. Pasta, Milk, Hardware store", color = pal.subtext, fontSize = 16.sp)
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = it.take(Comparison.MAX_TAG) },
+                    singleLine = true,
+                    textStyle = TextStyle(color = pal.text, fontSize = 16.sp),
+                    cursorBrush = SolidColor(pal.accent),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onSave(text) }),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                )
+            }
+            Text("${text.length}/${Comparison.MAX_TAG}", color = pal.subtext, fontSize = 11.sp)
+        }
+        if (suggestions.isNotEmpty()) {
+            Header("Used before")
+            FlowRow(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                suggestions.forEach { s ->
+                    Text(
+                        s, color = if (s.equals(text.trim(), ignoreCase = true)) pal.accent else pal.keyText, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(pal.key).clickable { text = s }.padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (current.isNotBlank()) {
+                Text(
+                    "Remove tag", color = pal.negative, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable { onSave("") }.padding(horizontal = 4.dp, vertical = 10.dp),
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Box(Modifier.clip(RoundedCornerShape(50)).background(pal.accent).clickable { onSave(text) }.padding(horizontal = 28.dp, vertical = 12.dp)) {
+                Text("Save", color = pal.onAccent, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun RecentsList(list: List<SavedComparison>, onPick: (SavedComparison) -> Unit, onClear: () -> Unit) {
+    val pal = Pal.current
+    var filter by remember { mutableStateOf<String?>(null) }
+    val tags = remember(list) { Recents.tags(list, limit = 20) }
+    val shown = remember(list, filter) { filter?.let { f -> list.filter { it.comparison.tag.equals(f, ignoreCase = true) } } ?: list }
     Column(Modifier.fillMaxHeight(0.8f).navigationBarsPadding()) {
         Title("Recent comparisons")
+        if (tags.isNotEmpty()) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                tags.forEach { t ->
+                    val sel = t.equals(filter, ignoreCase = true)
+                    Text(
+                        t, color = if (sel) pal.accent else pal.subtext, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (sel) pal.key else Color.Transparent)
+                            .clickable { filter = if (sel) null else t }.padding(horizontal = 12.dp, vertical = 7.dp),
+                    )
+                }
+            }
+        }
         if (list.isEmpty()) {
             Text("Comparisons you finish are kept here.", color = pal.subtext, fontSize = 14.sp, modifier = Modifier.padding(24.dp))
         }
         LazyColumn(Modifier.weight(1f)) {
-            items(list.size, key = { list[it].savedAt }) { i ->
-                val s = list[i]
+            items(shown, key = { it.savedAt }) { s ->
                 Column(Modifier.fillMaxWidth().clickable { onPick(s) }.padding(horizontal = 24.dp, vertical = 12.dp)) {
+                    if (s.comparison.tag.isNotBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.LocalOffer, null, tint = pal.accent, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(s.comparison.tag, color = pal.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                     Text(s.summary, color = pal.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Text(ago(s.savedAt), color = pal.subtext, fontSize = 12.sp)
                 }

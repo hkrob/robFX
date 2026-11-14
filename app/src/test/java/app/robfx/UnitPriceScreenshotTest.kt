@@ -39,6 +39,7 @@ abstract class UnitShots {
         override fun pickCurrency(item: Int) {}
         override fun pickHomeCurrency() {}
         override fun openRecents() {}
+        override fun pickTag() {}
         override fun openSettings() {}
         override fun selectTab(t: HomeTab) {}
     }
