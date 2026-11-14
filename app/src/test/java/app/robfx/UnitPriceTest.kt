@@ -245,6 +245,49 @@ class UnitPriceTest {
         assertEquals(listOf("Milk"), Recents.tags(list, limit = 1))
     }
 
+    @Test fun itemsCanBeNamedAndFallBackToTheirLetter() {
+        val c = cmp(g("5", "100"), g("7", "150")).withLabel(1, "  Coles   Central ")
+        assertEquals("Item A", UnitPrice.itemName(c, 0))
+        assertEquals("Coles Central", UnitPrice.itemName(c, 1))
+        assertEquals("Item C", UnitPrice.itemName(c, 2))
+        assertEquals("Item A", UnitPrice.itemName(c.withLabel(1, "x").withLabel(0, "   "), 0))
+        assertEquals(Comparison.MAX_LABEL, Comparison.cleanLabel("y".repeat(60)).length)
+        // Naming an item doesn't touch the numbers, and a new item starts unnamed even after the first was named.
+        assertEquals(UnitPrice.evaluate(cmp(g("5", "100"), g("7", "150")), noRates), UnitPrice.evaluate(c, noRates))
+        assertEquals("", c.withLabel(0, "Woolworths").withItemAdded().items[2].label)
+    }
+
+    @Test fun labelsSurviveJsonAndOldSavesWithoutOneStillLoad() {
+        val named = cmp(g("5", "100"), g("7", "150")).withLabel(0, "Woolworths")
+        val back = json.decodeFromString(Comparison.serializer(), json.encodeToString(Comparison.serializer(), named))
+        assertEquals("Woolworths", back.items[0].label)
+        val old = """{"version":1,"group":"Weight","basis":"100g","currency":"HKD","items":[{"price":"5","size":"100","unit":"g","currency":"HKD"}]}"""
+        assertEquals("", json.decodeFromString(Comparison.serializer(), old).items[0].label)
+    }
+
+    @Test fun renamingAnItemInASavedComparisonRenamesItInHistory() {
+        val plain = cmp(g("5", "100"), g("7", "150"))
+        var list = Recents.add(emptyList(), SavedComparison(1, "s", plain))
+        list = Recents.add(list, SavedComparison(2, "s", plain.withLabel(0, "Coles").withLabel(1, "Woolworths").withTag("Pasta")))
+        assertEquals(1, list.size)
+        assertEquals("Coles", list[0].comparison.items[0].label)
+        // Different prices are a different comparison, even with the same shops.
+        list = Recents.add(list, SavedComparison(3, "s", cmp(g("9", "100"), g("7", "150")).withLabel(0, "Coles").withLabel(1, "Woolworths")))
+        assertEquals(2, list.size)
+    }
+
+    @Test fun labelSuggestionsAreRecentFirstAndUnique() {
+        fun s(t: Long, a: String, b: String) = SavedComparison(t, "s", cmp(g("$t", "1"), g("2", "2")).withLabel(0, a).withLabel(1, b))
+        val list = listOf(s(3, "Coles", "Aldi"), s(2, "", "coles"), s(1, "Woolworths", "Costco"))
+        assertEquals(listOf("Coles", "Aldi", "Woolworths", "Costco"), Recents.labels(list))
+        assertEquals(listOf("Coles", "Aldi"), Recents.labels(list, limit = 2))
+    }
+
+    @Test fun summaryUsesTheShopNameWhenThereIsOne() {
+        val c = cmp(g("5", "100"), g("7", "150")).withLabel(1, "Costco")
+        assertTrue(Recents.summary(c, UnitPrice.evaluate(c, noRates)).contains("best Costco"))
+    }
+
     @Test fun summaryNamesTheBestItem() {
         val c = cmp(g("5", "100"), g("7", "150"))
         val e = UnitPrice.evaluate(c, noRates)

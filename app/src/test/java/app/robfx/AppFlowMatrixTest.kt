@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -145,6 +146,29 @@ class SessionFlow : FlowBase() {
         rule.onNodeWithText("Add item").performClick()
         rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)
         assertKeypad()
+    }
+
+    @Test fun namingItemsFlowsThroughToTheVerdict() {
+        launch(); openUnitTab()
+        // A: 5 for 100, B: 7 for 150, so B is the better value.
+        for (k in listOf("5")) tap(k)
+        tap("Next field"); for (k in listOf("1", "0", "0")) tap(k)
+        tap("Next field"); tap("Next field")
+        tap("7"); tap("Next field"); for (k in listOf("1", "5", "0")) tap(k)
+        rule.mainClock.advanceTimeBy(500)
+        rule.onNodeWithText("Best value: Item B").assertIsDisplayed()
+
+        // Name both shops through the real sheet and keyboard field.
+        rule.onNodeWithText("Item A").performClick(); rule.waitForIdle()
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Coles")
+        rule.onNodeWithText("Save").performClick(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(500)
+        rule.onNodeWithText("Item B").performClick(); rule.waitForIdle()
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Woolworths")
+        rule.onNodeWithText("Save").performClick(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(500)
+
+        rule.onNodeWithText("Best value: Woolworths").assertIsDisplayed()
+        rule.onNodeWithText("Coles").assertIsDisplayed()
+        shot("flow_named")
     }
 
     @Test fun rotationKeepsTheTabAndTheKeypad() {

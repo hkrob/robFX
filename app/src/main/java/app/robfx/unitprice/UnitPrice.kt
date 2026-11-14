@@ -95,6 +95,8 @@ data class UnitItem(
     val qty: String = "",
     val unit: String,
     val currency: String,
+    /** Optional name for this item, typically the shop ("Woolworths"). Defaulted, so older saves still load. */
+    val label: String = "",
 )
 
 @Serializable
@@ -111,9 +113,14 @@ data class Comparison(
     companion object {
         const val MAX_ITEMS = 6
         const val MAX_TAG = 30
+        const val MAX_LABEL = 20
+
+        private fun clean(raw: String, max: Int): String = raw.trim().replace(Regex("\\s+"), " ").take(max).trim()
 
         /** Tidy what was typed: trimmed, runs of spaces collapsed, capped. Blank means "no tag". */
-        fun cleanTag(raw: String): String = raw.trim().replace(Regex("\\s+"), " ").take(MAX_TAG).trim()
+        fun cleanTag(raw: String): String = clean(raw, MAX_TAG)
+
+        fun cleanLabel(raw: String): String = clean(raw, MAX_LABEL)
 
         fun fresh(group: UnitGroup, home: String, us: Boolean, basis: String? = null): Comparison {
             val item = UnitItem(unit = Units.defaultUnit(group, us), currency = home)
@@ -135,6 +142,12 @@ data class Comparison(
     }
 
     fun withTag(raw: String): Comparison = copy(tag = cleanTag(raw))
+
+    fun withLabel(index: Int, raw: String): Comparison =
+        copy(items = items.mapIndexed { i, it -> if (i == index) it.copy(label = cleanLabel(raw)) else it })
+
+    /** What the comparison is really about: the same numbers, whatever it's been called. Used to spot re-saves. */
+    fun withoutNames(): Comparison = copy(tag = "", items = items.map { it.copy(label = "") })
 
     fun withItemRemoved(index: Int): Comparison =
         if (items.size <= 2 || index !in items.indices) this else copy(items = items.filterIndexed { i, _ -> i != index })
@@ -245,7 +258,11 @@ object UnitPrice {
         return Evaluation(ranked, verdict)
     }
 
+    /** The positional fallback, used for anything you haven't named. */
     fun itemLabel(index: Int) = "Item ${('A' + index)}"
+
+    /** What to call an item on screen: its label when it has one, otherwise "Item A". */
+    fun itemName(c: Comparison, index: Int): String = c.items.getOrNull(index)?.label?.takeIf { it.isNotBlank() } ?: itemLabel(index)
 }
 
 object UnitFormat {
@@ -293,7 +310,11 @@ object Recents {
      * it was re-tagged in between, so tagging something you already saved renames it instead of duplicating it.
      */
     fun add(list: List<SavedComparison>, saved: SavedComparison): List<SavedComparison> =
-        (listOf(saved) + list.filterNot { it.comparison.copy(tag = "") == saved.comparison.copy(tag = "") }).take(CAP)
+        (listOf(saved) + list.filterNot { it.comparison.withoutNames() == saved.comparison.withoutNames() }).take(CAP)
+
+    /** Item labels already used (shop names), most recent first, one per spelling ignoring case: the quick picks. */
+    fun labels(list: List<SavedComparison>, limit: Int = 8): List<String> =
+        list.flatMap { s -> s.comparison.items.map { it.label } }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.take(limit)
 
     /** Tags already used, most recent first, one per spelling ignoring case: these become the quick-pick suggestions. */
     fun tags(list: List<SavedComparison>, limit: Int = 8): List<String> =
@@ -303,6 +324,6 @@ object Recents {
         val best = e.items.withIndex().filter { it.value is ItemResult.Ready }.minByOrNull { (it.value as ItemResult.Ready).rank }
         val basis = Units.basis(c.group, c.basis)
         val head = "${c.group.label} · ${c.items.size} items"
-        return if (best == null) head else "$head · best ${UnitPrice.itemLabel(best.index)} ${UnitFormat.money(c.currency, (best.value as ItemResult.Ready).unitPrice)} / ${basis.label}"
+        return if (best == null) head else "$head · best ${UnitPrice.itemName(c, best.index)} ${UnitFormat.money(c.currency, (best.value as ItemResult.Ready).unitPrice)} / ${basis.label}"
     }
 }

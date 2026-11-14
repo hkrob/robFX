@@ -58,7 +58,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.LocalOffer
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -111,6 +113,7 @@ interface UnitPriceActions {
     fun pickHomeCurrency()
     fun openRecents()
     fun pickTag()
+    fun pickLabel(item: Int)
     fun openSettings()
     fun selectTab(t: HomeTab)
 }
@@ -122,6 +125,7 @@ private sealed interface UnitSheet {
     data object Home : UnitSheet
     data object Recents : UnitSheet
     data object Tag : UnitSheet
+    data class Label(val item: Int) : UnitSheet
 }
 
 /** Stateful wrapper: owns which sheet is open, wires everything else to the ViewModel. */
@@ -135,6 +139,7 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
     val status by vm.status.collectAsState()
     val currencyRecents by vm.currencyRecents.collectAsState()
     val tagSuggestions by vm.tagSuggestions.collectAsState()
+    val labelSuggestions by vm.labelSuggestions.collectAsState()
     var sheet by remember { mutableStateOf<UnitSheet>(UnitSheet.None) }
 
     val actions = remember(vm) {
@@ -153,6 +158,7 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
             override fun pickHomeCurrency() { sheet = UnitSheet.Home }
             override fun openRecents() { sheet = UnitSheet.Recents }
             override fun pickTag() { sheet = UnitSheet.Tag }
+            override fun pickLabel(item: Int) { sheet = UnitSheet.Label(item) }
             override fun openSettings() = onOpenSettings()
             override fun selectTab(t: HomeTab) = onSelectTab(t)
         }
@@ -171,6 +177,12 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
         }
         UnitSheet.Home -> AppSheet(close) {
             CurrencyPicker(currencyRecents, "Compare in", comparison.currency) { vm.setHomeCurrency(it); close() }
+        }
+        is UnitSheet.Label -> AppSheet(close) {
+            LabelEditor(
+                title = "Name ${UnitPrice.itemLabel(s.item)}", placeholder = "e.g. Woolworths, Costco, Online", max = Comparison.MAX_LABEL,
+                current = comparison.items.getOrNull(s.item)?.label.orEmpty(), suggestions = labelSuggestions, suggestionsHeader = "Shops used before",
+            ) { vm.setLabel(s.item, it); close() }
         }
         UnitSheet.Tag -> AppSheet(close) {
             TagEditor(comparison.tag, tagSuggestions) { vm.setTag(it); close() }
@@ -318,7 +330,7 @@ private fun VerdictBanner(e: Evaluation, c: Comparison, tag: String, onTag: () -
                     Box(Modifier.size(8.dp).clip(CircleShape).background(pal.positive))
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        Text("${UnitPrice.itemLabel(v.index)} is the best value", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Best value: ${UnitPrice.itemName(c, v.index)}", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("Next best costs ${UnitFormat.plainPercent(v.nextBestMore)} more per ${basis.label}", color = pal.subtext, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
@@ -370,12 +382,20 @@ private fun ItemCard(
     val unit = Units.byId[item.unit]
     val isBest = verdict is Verdict.Winner && verdict.index == index
     val isTie = verdict is Verdict.Tie && index in verdict.indices
+    val name = UnitPrice.itemName(cmp, index)
 
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(pal.key).padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 12.dp)) {
-        Row(Modifier.fillMaxWidth().height(50.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Text(UnitPrice.itemLabel(index), color = pal.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Spacer(Modifier.width(8.dp))
+        Row(Modifier.fillMaxWidth().heightIn(min = 50.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                // The name is the thing you tap to rename: a shop, a brand, or just "Item A" until you say otherwise.
+                Row(
+                    Modifier.clip(RoundedCornerShape(8.dp)).clickable { actions.pickLabel(index) }.padding(end = 6.dp, top = 2.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(name, color = pal.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Outlined.Edit, "Name ${UnitPrice.itemLabel(index)}", tint = pal.subtext, modifier = Modifier.size(13.dp))
+                }
                 when {
                     isBest -> Badge("BEST", pal.positive)
                     isTie -> Badge("SAME", pal.accent)
@@ -399,7 +419,7 @@ private fun ItemCard(
             }
             if (canRemove) {
                 Box(Modifier.size(36.dp).clip(CircleShape).clickable { actions.removeItem(index) }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Close, "Remove ${UnitPrice.itemLabel(index)}", tint = pal.subtext, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.Close, "Remove $name", tint = pal.subtext, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -490,13 +510,26 @@ private fun UnitPicker(group: UnitGroup, selected: String?, onPick: (String) -> 
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-internal fun TagEditor(current: String, suggestions: List<String>, onSave: (String) -> Unit) {
+internal fun TagEditor(current: String, suggestions: List<String>, onSave: (String) -> Unit) =
+    LabelEditor("Tag this comparison", "e.g. Pasta, Milk, Hardware store", Comparison.MAX_TAG, current, suggestions, "Used before", onSave)
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+internal fun LabelEditor(
+    title: String,
+    placeholder: String,
+    max: Int,
+    current: String,
+    suggestions: List<String>,
+    suggestionsHeader: String,
+    onSave: (String) -> Unit,
+) {
     val pal = Pal.current
     var text by remember { mutableStateOf(current) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     Column(Modifier.imePadding().navigationBarsPadding().padding(bottom = 16.dp)) {
-        Title("Tag this comparison")
+        Title(title)
         Row(
             Modifier.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(pal.key).padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -504,10 +537,10 @@ internal fun TagEditor(current: String, suggestions: List<String>, onSave: (Stri
             Icon(Icons.Outlined.LocalOffer, null, tint = pal.subtext, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(12.dp))
             Box(Modifier.weight(1f)) {
-                if (text.isEmpty()) Text("e.g. Pasta, Milk, Hardware store", color = pal.subtext, fontSize = 16.sp)
+                if (text.isEmpty()) Text(placeholder, color = pal.subtext, fontSize = 16.sp)
                 BasicTextField(
                     value = text,
-                    onValueChange = { text = it.take(Comparison.MAX_TAG) },
+                    onValueChange = { text = it.take(max) },
                     singleLine = true,
                     textStyle = TextStyle(color = pal.text, fontSize = 16.sp),
                     cursorBrush = SolidColor(pal.accent),
@@ -516,10 +549,10 @@ internal fun TagEditor(current: String, suggestions: List<String>, onSave: (Stri
                     modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
             }
-            Text("${text.length}/${Comparison.MAX_TAG}", color = pal.subtext, fontSize = 11.sp)
+            Text("${text.length}/$max", color = pal.subtext, fontSize = 11.sp)
         }
         if (suggestions.isNotEmpty()) {
-            Header("Used before")
+            Header(suggestionsHeader)
             FlowRow(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 suggestions.forEach { s ->
                     Text(

@@ -54,6 +54,7 @@ class UnitTagTest {
         override fun pickHomeCurrency() {}
         override fun openRecents() {}
         override fun pickTag() { log += "pickTag" }
+        override fun pickLabel(item: Int) { log += "label $item" }
         override fun openSettings() {}
         override fun selectTab(t: HomeTab) {}
     }
@@ -88,6 +89,40 @@ class UnitTagTest {
         rule.onNodeWithText("Pasta night").performClick()
         assertEquals(listOf("pickTag"), r.log)
         shot("unit_tagged")
+    }
+
+    @Test fun namedItemsShowTheirNamesEverywhereAndAreTappableToRename() {
+        val r = Recorder()
+        val c = base.withLabel(0, "Coles").withLabel(1, "Woolworths").withTag("Pasta")
+        val ev = UnitPrice.evaluate(c) { _, _ -> null }
+        rule.setContent { RobFxTheme(ThemeMode.Amoled, false) { UnitPriceContent(UnitPriceUi(c, ev, null, true, true, null), r) } }
+        // The verdict leads with the cheaper shop, and the cards carry the names instead of "Item A".
+        rule.onNodeWithText("Best value: Woolworths").assertExists()
+        rule.onNodeWithText("Item A").assertDoesNotExist()
+        rule.onNodeWithText("Coles").performClick()
+        rule.onNodeWithText("Woolworths").performClick()
+        assertEquals(listOf("label 0", "label 1"), r.log)
+        shot("unit_labelled")
+    }
+
+    @Test fun unnamedItemsKeepTheirLetters() {
+        val ev = UnitPrice.evaluate(base) { _, _ -> null }
+        rule.setContent { RobFxTheme(ThemeMode.Amoled, false) { UnitPriceContent(UnitPriceUi(base, ev, null, true, true, null), Recorder()) } }
+        rule.onNodeWithText("Item A").assertExists()
+        rule.onNodeWithText("Best value: Item B").assertExists()
+    }
+
+    @Test fun labelEditorOffersShopsUsedBeforeAndSaves() {
+        var out: String? = null
+        rule.setContent {
+            RobFxTheme(ThemeMode.Amoled, false) {
+                OnSheet { app.robfx.ui.LabelEditor("Name Item A", "e.g. Woolworths, Costco, Online", Comparison.MAX_LABEL, "", listOf("Coles", "Aldi"), "Shops used before") { out = it } }
+            }
+        }
+        rule.onNodeWithText("Aldi").performClick()
+        rule.onNodeWithText("Save").performClick()
+        assertEquals("Aldi", out)
+        shot("unit_label_editor")
     }
 
     @Test fun untaggedShowsAQuietPromptNotAnEmptyLabel() {

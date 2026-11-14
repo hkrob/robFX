@@ -51,6 +51,7 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
 
     val recents: StateFlow<List<SavedComparison>> = c.settings.unitRecents.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val tagSuggestions: StateFlow<List<String>> = c.settings.unitRecents.map { Recents.tags(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val labelSuggestions: StateFlow<List<String>> = c.settings.unitRecents.map { Recents.labels(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val currencyRecents: StateFlow<List<String>> = c.settings.settings.map { it.recents }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private fun evaluate(cmp: Comparison): Evaluation = UnitPrice.evaluate(cmp) { f, t -> c.rates.pair(f, t) }
@@ -119,6 +120,7 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
     fun setGroup(g: UnitGroup) = edit { if (it.group == g) it else it.withGroup(g, us) }
     fun setBasis(id: String) = edit { it.copy(basis = id) }
     fun setTag(raw: String) = edit { it.withTag(raw) }
+    fun setLabel(item: Int, raw: String) = edit { it.withLabel(item, raw) }
     fun setUnit(i: Int, unitId: String) = editItem(i) { it.copy(unit = unitId) }
     fun setCurrency(i: Int, code: String) = editItem(i) { it.copy(currency = code) }
     fun setHomeCurrency(code: String) = edit { it.withHomeCurrency(code) }
