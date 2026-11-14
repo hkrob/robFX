@@ -239,7 +239,7 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
                 }
             }
             item {
-                Text("robFX 1.2.1 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
+                Text("robFX 1.2.2 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
             }
         }
     }

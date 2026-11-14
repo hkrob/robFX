@@ -126,6 +126,27 @@ class SessionFlow : FlowBase() {
         assertKeypad()
     }
 
+    @Test fun tappingAFieldBringsBackAFoldedKeypad() {
+        launch(); openUnitTab(); assertKeypad()
+        // Fold the keypad away, as a stray tap on the chevron would.
+        tap("Hide keypad")
+        rule.mainClock.advanceTimeBy(1000)
+        rule.onNodeWithContentDescription("Show keypad").assertIsDisplayed()
+        rule.onNodeWithContentDescription("7").assertDoesNotExist()
+        // Tapping any of the three fields opens it again.
+        for (label in listOf("PRICE", "SIZE", "QTY")) {
+            rule.onAllNodesWithText(label)[0].performClick()
+            rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)
+            assertKeypad()
+            tap("Hide keypad"); rule.mainClock.advanceTimeBy(1000)
+            rule.onNodeWithContentDescription("7").assertDoesNotExist()
+        }
+        // Adding an item is also "about to type".
+        rule.onNodeWithText("Add item").performClick()
+        rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)
+        assertKeypad()
+    }
+
     @Test fun rotationKeepsTheTabAndTheKeypad() {
         val s = launch(); openUnitTab()
         s.recreate(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)

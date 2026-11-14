@@ -83,7 +83,11 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
         cmp.copy(items = cmp.items.mapIndexed { idx, it -> if (idx == i) transform(it) else it })
     }
 
-    fun focusOn(item: Int, field: Field) { _focus.value = FocusTarget(item, field) }
+    /** Tapping a field means "I'm about to type", so it also brings the keypad back if it was folded away. */
+    fun focusOn(item: Int, field: Field) {
+        _focus.value = FocusTarget(item, field)
+        _keypadOpen.value = true
+    }
 
     private fun valueOf(item: UnitItem, f: Field) = when (f) { Field.Price -> item.price; Field.Size -> item.size; Field.Qty -> item.qty }
 
@@ -122,6 +126,7 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
     fun addItem() {
         edit { it.withItemAdded() }
         _focus.value = FocusTarget(_comparison.value.items.lastIndex, Field.Price)
+        _keypadOpen.value = true
     }
 
     fun removeItem(i: Int) {
