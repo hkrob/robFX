@@ -3,6 +3,7 @@ package app.robfx
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.robfx.unitprice.Comparison
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -19,6 +20,12 @@ object TestStorage {
         t.join(20_000)
         check(!t.isAlive) { "storage did not answer while trying to $what" }
         failure?.let { throw it }
+    }
+
+    fun recentLabels(): List<String> {
+        var out = emptyList<String>()
+        onWorker("read recent labels") { out = it.settings.recentLabels.first() }
+        return out
     }
 
     fun reset() = onWorker("reset storage") { it.settings.clearAll() }

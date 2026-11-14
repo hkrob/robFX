@@ -140,6 +140,12 @@ class UnitTagTest {
         shot("unit_tag_editor")
     }
 
+    @Test fun anEmptyRecentsSectionSaysSoInsteadOfVanishing() {
+        rule.setContent { RobFxTheme(ThemeMode.Amoled, false) { OnSheet { TagEditor("", emptyList()) { } } } }
+        rule.onNodeWithText("RECENTLY USED").assertExists()
+        rule.onNodeWithText("Nothing yet. Names you save will appear here for next time.").assertExists()
+    }
+
     @Test fun editorCanRemoveAnExistingTag() {
         var out: String? = "unset"
         rule.setContent { RobFxTheme(ThemeMode.Amoled, false) { TagEditor("Milk", emptyList()) { out = it } } }

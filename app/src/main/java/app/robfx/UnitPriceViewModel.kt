@@ -73,6 +73,9 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
         val stored = c.settings.unitComparison() ?: return@launch
         // Anything you did in the meantime wins; the saved one only replaces an untouched, fresh screen.
         if (!touched) _comparison.value = stored
+        // Names already on it (typed before the recents list existed, or in an earlier session) count as recently used.
+        stored.items.map { it.label }.filter { it.isNotBlank() }.asReversed().forEach { c.settings.addRecentLabel(it) }
+        stored.tag.takeIf { it.isNotBlank() }?.let { c.settings.addRecentTag(it) }
     }
 
     @OptIn(FlowPreview::class)

@@ -186,6 +186,31 @@ class SessionFlow : FlowBase() {
         shot("flow_recent_names")
     }
 
+    @Test fun namesAlreadyOnTheSavedComparisonAreRecentAndOfferedToTheOtherItems() {
+        // As if typed under an earlier version: stored on the comparison, but never put in the recents list.
+        seed(
+            Comparison(
+                group = UnitGroup.Weight, basis = "100g", currency = "HKD",
+                items = listOf(
+                    UnitItem("5", "100", "", "g", "HKD", label = "Coles"),
+                    UnitItem("7", "150", "", "g", "HKD", label = "Woolworths"),
+                    UnitItem("", "", "", "g", "HKD"),
+                ),
+            ),
+        )
+        launch(); openUnitTab()
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Coles").fetchSemanticsNodes().isNotEmpty() }
+        // Naming the third item offers the other two, even though nothing has been saved to history.
+        rule.onNodeWithText("Item C").performClick(); rule.waitForIdle()
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("RECENTLY USED").fetchSemanticsNodes().isNotEmpty() }
+        org.junit.Assert.assertEquals(2, rule.onAllNodesWithText("Coles").fetchSemanticsNodes().size)
+        org.junit.Assert.assertEquals(2, rule.onAllNodesWithText("Woolworths").fetchSemanticsNodes().size)
+        // ...and they were carried into the recents list itself, for the next comparison.
+        rule.waitUntil(5_000) { TestStorage.recentLabels().size >= 2 }
+        org.junit.Assert.assertEquals(setOf("Coles", "Woolworths"), TestStorage.recentLabels().toSet())
+        shot("flow_recent_carried")
+    }
+
     @Test fun tagsYouJustTypedAreOfferedStraightAway() {
         launch(); openUnitTab()
         rule.onNodeWithText("Tag").performClick(); rule.waitForIdle()

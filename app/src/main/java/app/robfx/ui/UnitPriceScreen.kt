@@ -181,7 +181,9 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
         is UnitSheet.Label -> AppSheet(close) {
             LabelEditor(
                 title = "Name ${UnitPrice.itemLabel(s.item)}", placeholder = "e.g. Woolworths, Costco, Online", max = Comparison.MAX_LABEL,
-                current = comparison.items.getOrNull(s.item)?.label.orEmpty(), suggestions = labelSuggestions, suggestionsHeader = "Recently used",
+                current = comparison.items.getOrNull(s.item)?.label.orEmpty(),
+                suggestions = Recents.merge(labelSuggestions, comparison.items.filterIndexed { i, _ -> i != s.item }.map { it.label }),
+                suggestionsHeader = "Recently used",
             ) { vm.setLabel(s.item, it); close() }
         }
         UnitSheet.Tag -> AppSheet(close) {
@@ -551,8 +553,10 @@ internal fun LabelEditor(
             }
             Text("${text.length}/$max", color = pal.subtext, fontSize = 11.sp)
         }
-        if (suggestions.isNotEmpty()) {
-            Header(suggestionsHeader)
+        Header(suggestionsHeader)
+        if (suggestions.isEmpty()) {
+            Text("Nothing yet. Names you save will appear here for next time.", color = pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+        } else {
             FlowRow(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 suggestions.forEach { s ->
                     Text(
