@@ -115,10 +115,15 @@ class UnitPriceViewModel(app: Application, initial: Comparison) : AndroidViewMod
     fun toggleKeypad() = _keypadOpen.update { !it }
 
     /** A comparison is worth remembering only once it actually compared something. */
+    private var lastSaved: Comparison? = null
+
     private fun saveRecent() {
         val cmp = _comparison.value
+        // The app stops every time you switch away; re-saving an unchanged comparison would just rewrite its time to "now".
+        if (cmp == lastSaved) return
         val ev = evaluate(cmp)
         if (ev.readyCount < 2) return
+        lastSaved = cmp
         viewModelScope.launch {
             c.settings.updateUnitRecents { Recents.add(it, SavedComparison(System.currentTimeMillis(), Recents.summary(cmp, ev), cmp)) }
         }
@@ -138,6 +143,7 @@ class UnitPriceViewModel(app: Application, initial: Comparison) : AndroidViewMod
     fun restore(saved: SavedComparison) {
         saveRecent()
         _comparison.value = saved.comparison
+        lastSaved = saved.comparison
         _focus.value = FocusTarget(0, Field.Price)
     }
 

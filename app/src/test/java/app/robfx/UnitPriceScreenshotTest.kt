@@ -77,6 +77,12 @@ abstract class UnitShots {
 @Config(sdk = [35], application = android.app.Application::class, qualifiers = "w412dp-h892dp-port-xxhdpi")
 class UnitPhoneShots : UnitShots() {
     @Test fun example() = shot("unit_example", ThemeMode.Amoled, example, FocusTarget(1, Field.Size))
+    @Test fun firstRun() = shot("unit_first_run", ThemeMode.Amoled, Comparison.fresh(UnitGroup.Weight, "HKD", us = false), FocusTarget(0, Field.Price))
+    @Test fun countGroup() = shot(
+        "unit_count", ThemeMode.Amoled,
+        Comparison(group = UnitGroup.Count, basis = "each", currency = "HKD", items = listOf(UnitItem("38", "12", "", "each", "HKD"), UnitItem("22", "6", "", "each", "HKD"))),
+        FocusTarget(0, Field.Qty),
+    )
     @Test fun multipackLight() = shot("unit_multipack_light", ThemeMode.Light, multipack, FocusTarget(0, Field.Price))
 }
 

@@ -161,8 +161,8 @@ sealed interface ItemResult {
 sealed interface Verdict {
     data object None : Verdict
 
-    /** [savings] is how much cheaper the winner is than the runner-up, as a fraction of the runner-up's price. */
-    data class Winner(val index: Int, val savings: Double) : Verdict
+    /** [nextBestMore] is how much more the runner-up costs than the winner, the same yardstick the item badges use. */
+    data class Winner(val index: Int, val nextBestMore: Double) : Verdict
 
     data class Tie(val indices: List<Int>) : Verdict
 }
@@ -230,7 +230,7 @@ object UnitPrice {
                 if (second / best - 1 < TIE) {
                     Verdict.Tie(ready.filter { (it.value as ItemResult.Ready).unitPrice / best - 1 < TIE }.map { it.index })
                 } else {
-                    Verdict.Winner(ready.first().index, 1 - best / second)
+                    Verdict.Winner(ready.first().index, second / best - 1)
                 }
             }
         }

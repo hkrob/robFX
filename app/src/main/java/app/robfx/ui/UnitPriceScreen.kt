@@ -286,13 +286,16 @@ private fun VerdictBanner(e: Evaluation, c: Comparison) {
     val pal = Pal.current
     val basis = Units.basis(c.group, c.basis)
     val stale = e.items.any { it is ItemResult.Ready && it.stale }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp).height(40.dp), verticalArrangement = Arrangement.Center) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp).height(46.dp), verticalArrangement = Arrangement.Center) {
         when (val v = e.verdict) {
+            // One yardstick throughout: everything is measured against the best item, so the banner and the badges agree.
             is Verdict.Winner -> Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(pal.positive))
                 Spacer(Modifier.width(10.dp))
-                Text("${UnitPrice.itemLabel(v.index)} is ${UnitFormat.plainPercent(v.savings)} cheaper", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text("  per ${basis.label}", color = pal.subtext, fontSize = 13.sp, maxLines = 1)
+                Column {
+                    Text("${UnitPrice.itemLabel(v.index)} is the best value", color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("Next best costs ${UnitFormat.plainPercent(v.nextBestMore)} more per ${basis.label}", color = pal.subtext, fontSize = 12.sp, maxLines = 1)
+                }
             }
             is Verdict.Tie -> Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(pal.accent))

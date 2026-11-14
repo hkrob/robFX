@@ -64,9 +64,10 @@ class UnitPriceTest {
         assertEquals(4.6667, ready(e, 1).unitPrice, 1e-4)
         val v = e.verdict as Verdict.Winner
         assertEquals(1, v.index)
-        assertEquals(1 - 4.66666667 / 5.0, v.savings, 1e-6)
-        assertEquals(1, ready(e, 1).rank.let { 1 - it })
-        assertEquals(0.07142857, ready(e, 0).percentAboveBest, 1e-6)
+        // Banner and badge agree: the loser costs 7.1% more, and that is the number the banner reports too.
+        assertEquals(0.07142857, v.nextBestMore, 1e-6)
+        assertEquals(v.nextBestMore, ready(e, 0).percentAboveBest, 1e-9)
+        assertEquals(0, ready(e, 1).rank)
     }
 
     @Test fun mixedUnitsInTheSameGroup() {
@@ -116,7 +117,7 @@ class UnitPriceTest {
         assertEquals(listOf(2, 0, 1), listOf(ready(e, 0).rank, ready(e, 1).rank, ready(e, 2).rank))
         val v = e.verdict as Verdict.Winner
         assertEquals(1, v.index)
-        assertEquals(1 - 5.0 / 6.0, v.savings, 1e-9)
+        assertEquals(6.0 / 5.0 - 1, v.nextBestMore, 1e-9)
     }
 
     @Test fun foreignPricesConvertAndMissingRatesAreVisibleNotOneToOne() {
