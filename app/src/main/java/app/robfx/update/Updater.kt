@@ -99,7 +99,7 @@ class Updater(private val context: Context, private val settings: SettingsStore)
             val file = File(context.cacheDir, "update/robFX-${info.version}.apk")
             file.parentFile?.apply { listFiles()?.forEach { it.delete() }; mkdirs() }
             _state.value = UpdateState.Downloading(info, 0f)
-            val sha = withContext(Dispatchers.IO) { fetch(info, file) }
+            val sha = withContext(app.robfx.data.source.NetworkDispatcher) { fetch(info, file) }
             if (info.sha256 != null && info.sha256 != sha) throw IOException("Download failed its checksum")
             verifyArchive(file)
             _state.value = UpdateState.Installing(info)

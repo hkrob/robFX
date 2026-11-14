@@ -11,14 +11,20 @@ import app.robfx.work.RatesWorker
 import app.robfx.work.UpdateWorker
 import java.util.concurrent.TimeUnit
 
-class RobFxApp : Application() {
+open class RobFxApp : Application() {
     lateinit var container: AppContainer
         private set
 
     override fun onCreate() {
         super.onCreate()
+        app.robfx.diag.Diagnostics.installCrashLog(this)
         container = AppContainer(this)
         Notifier.ensureChannel(this)
+        scheduleBackgroundWork()
+    }
+
+    /** Overridable so tests can start the real activity without a WorkManager. */
+    protected open fun scheduleBackgroundWork() {
         // Powers both the widget and the alerts. KEEP so a relaunch doesn't reset the period.
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "rates",

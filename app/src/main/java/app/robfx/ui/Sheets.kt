@@ -230,7 +230,16 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
                 ) { Text(if (refreshing) "Refreshing…" else "Refresh now", color = pal.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
             }
             item {
-                Text("robFX 1.2.0 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                Header("Diagnostics")
+                NavRow("Copy diagnostic report", "If the app froze or crashed, copy this and send it with your report") {
+                    val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("robFX diagnostics", app.robfx.diag.Diagnostics.report(ctx)))
+                    android.widget.Toast.makeText(ctx, "Report copied", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+            item {
+                Text("robFX 1.2.1 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
             }
         }
     }

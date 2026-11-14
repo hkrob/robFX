@@ -32,10 +32,6 @@ import app.robfx.ui.HomeContent
 import app.robfx.ui.HomeUi
 import app.robfx.ui.Sheets
 import app.robfx.ui.UnitPriceScreen
-import app.robfx.unitprice.Comparison
-import app.robfx.unitprice.UnitGroup
-import app.robfx.unitprice.Units
-import app.robfx.data.Currencies
 import app.robfx.data.WatchPair
 import app.robfx.ui.AppRoot
 import app.robfx.update.UpdateState
@@ -50,9 +46,7 @@ class MainActivity : ComponentActivity() {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val initial = runBlocking { container.settings.unitComparison() }
-                    ?: Comparison.fresh(UnitGroup.Weight, Currencies.localPair().first, Units.isUs())
-                return UnitPriceViewModel(application, initial) as T
+                return UnitPriceViewModel(application) as T
             }
         }
     }

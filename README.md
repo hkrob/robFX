@@ -9,6 +9,10 @@ Clean, sharp currency converter for Android (Compose, Material 3, compile and ta
 
 Build: `ANDROID_HOME=... ./gradlew :app:assembleDebug`. Headless screenshots: `ROBOLECTRIC_DEPS=<dir with android-all jar> ./gradlew :app:testDebugUnitTest` writes `app/build/screens/`.
 
+## Diagnostics
+
+Settings -> Diagnostics -> "Copy diagnostic report" copies the app version, device, screen and font size, why Android last ended the app (including the main-thread trace of an ANR when the system kept one), and any uncaught exception. Paste it into a bug report.
+
 ## Updates
 
 robFX updates itself from this repo's GitHub releases.

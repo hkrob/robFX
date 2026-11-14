@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.robfx.calc.Calc
+import app.robfx.data.Currencies
 import app.robfx.data.PairRate
 import app.robfx.unitprice.Comparison
 import app.robfx.unitprice.Evaluation
@@ -30,9 +31,14 @@ enum class Field { Price, Size, Qty }
 
 data class FocusTarget(val item: Int, val field: Field)
 
-class UnitPriceViewModel(app: Application, initial: Comparison) : AndroidViewModel(app) {
+class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
     private val c = app.container
     private val us = Units.isUs()
+
+    // Opens on a fresh comparison immediately and loads the saved one afterwards. Reading storage on the main thread
+    // here once froze the app for as long as background threads were busy, so nothing on this path may block.
+    private val initial = Comparison.fresh(UnitGroup.Weight, Currencies.localPair().first, us)
+    private var touched = false
 
     private val _comparison = MutableStateFlow(initial)
     val comparison: StateFlow<Comparison> = _comparison
@@ -57,12 +63,21 @@ class UnitPriceViewModel(app: Application, initial: Comparison) : AndroidViewMod
         c.rates.pair(home, if (home == "USD") "EUR" else "USD")
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    private val load = viewModelScope.launch {
+        val stored = c.settings.unitComparison() ?: return@launch
+        // Anything you did in the meantime wins; the saved one only replaces an untouched, fresh screen.
+        if (!touched) _comparison.value = stored
+    }
+
     @OptIn(FlowPreview::class)
     private val persist = viewModelScope.launch {
         _comparison.drop(1).debounce(300).collect { c.settings.setUnitComparison(it) }
     }
 
-    private fun edit(transform: (Comparison) -> Comparison) = _comparison.update(transform)
+    private fun edit(transform: (Comparison) -> Comparison) {
+        touched = true
+        _comparison.update(transform)
+    }
 
     private fun editItem(i: Int, transform: (UnitItem) -> UnitItem) = edit { cmp ->
         cmp.copy(items = cmp.items.mapIndexed { idx, it -> if (idx == i) transform(it) else it })
@@ -137,6 +152,7 @@ class UnitPriceViewModel(app: Application, initial: Comparison) : AndroidViewMod
     /** Start over, keeping the group, basis and home currency you were using. */
     fun clearAll() {
         saveRecent()
+        touched = true
         val cmp = _comparison.value
         _comparison.value = Comparison.fresh(cmp.group, cmp.currency, us, cmp.basis)
         _focus.value = FocusTarget(0, Field.Price)
@@ -144,6 +160,7 @@ class UnitPriceViewModel(app: Application, initial: Comparison) : AndroidViewMod
 
     fun restore(saved: SavedComparison) {
         saveRecent()
+        touched = true
         _comparison.value = saved.comparison
         lastSaved = saved.comparison
         _focus.value = FocusTarget(0, Field.Price)

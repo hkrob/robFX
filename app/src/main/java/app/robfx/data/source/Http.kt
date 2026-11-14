@@ -7,6 +7,13 @@ import okhttp3.Request
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
+/**
+ * Network calls are blocking, and a bad connection can hold each one for its whole timeout. Giving them a bounded slice of the IO
+ * pool means a burst of slow requests can never take every thread and starve DataStore or anything else that needs one.
+ */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+val NetworkDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO.limitedParallelism(8)
+
 class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code for $url")
 
 class Http(
@@ -16,7 +23,7 @@ class Http(
         .build(),
 ) {
     // Blocking call on IO; callTimeout bounds it, and coroutine cancellation is honoured between requests.
-    suspend fun get(url: String): String = withContext(Dispatchers.IO) {
+    suspend fun get(url: String): String = withContext(NetworkDispatcher) {
         val req = Request.Builder().url(url).header("Accept", "application/json").header("User-Agent", "RobFx/1.0").build()
         client.newCall(req).execute().use { r ->
             if (!r.isSuccessful) throw HttpStatusException(r.code, url)
