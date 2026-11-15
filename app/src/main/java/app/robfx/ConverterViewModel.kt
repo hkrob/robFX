@@ -242,6 +242,9 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     fun checkForUpdate() { viewModelScope.launch { c.updater.check() } }
     fun installUpdate(info: UpdateInfo) { viewModelScope.launch { c.updater.downloadAndInstall(info) } }
     fun setAutoUpdate(v: Boolean) = viewModelScope.launch { c.settings.setAutoUpdate(v) }
+    fun setRateDecimals(v: Int) = viewModelScope.launch { c.settings.setRateDecimals(v) }
+    fun setAmountDecimals(v: Int) = viewModelScope.launch { c.settings.setAmountDecimals(v) }
+    fun setUnitDecimals(v: Int) = viewModelScope.launch { c.settings.setUnitDecimals(v) }
     fun setHaptics(v: Boolean) = viewModelScope.launch { c.settings.setHaptics(v) }
 
     fun addAlert(above: Boolean, target: Double) {

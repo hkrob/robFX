@@ -136,7 +136,7 @@ class MainActivity : ComponentActivity() {
                         onStopEditing = { vm.setEditing(false) },
                         markets = {
                             if (tab == HomeTab.UnitPrice) {
-                                UnitPriceScreen(unitVm, settings.haptics, onSelectTab = selectTab, onOpenSettings = { vm.open(Sheet.Settings) })
+                                UnitPriceScreen(unitVm, settings.haptics, settings.unitDecimals, onSelectTab = selectTab, onOpenSettings = { vm.open(Sheet.Settings) })
                             } else {
                                 val rows by vm.rows.collectAsState()
                                 val refreshing by vm.refreshing.collectAsState()
@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
                                 Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
                                     Box(Modifier.widthIn(max = 640.dp).fillMaxHeight()) {
                                         HomeContent(
-                                            HomeUi(rows, status, editing, refreshing, pending, settings.sort, settings.sortDescending),
+                                            HomeUi(rows, status, editing, refreshing, pending, settings.sort, settings.sortDescending, settings.rateDecimals),
                                             object : HomeActions {
                                                 override fun open(w: WatchPair) = vm.openPair(w)
                                                 override fun remove(w: WatchPair) = vm.removeWatch(w)

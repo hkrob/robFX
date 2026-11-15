@@ -9,6 +9,10 @@ Clean, sharp currency converter for Android (Compose, Material 3, compile and ta
 
 Build: `ANDROID_HOME=... ./gradlew :app:assembleDebug`. Headless screenshots: `ROBOLECTRIC_DEPS=<dir with android-all jar> ./gradlew :app:testDebugUnitTest` writes `app/build/screens/`.
 
+## Decimals
+
+Settings -> Decimals sets the precision separately for rates (Markets, the converter's rate line, the chart), converted amounts and unit prices: Auto (the default, adaptive) or 0 to 6 places. A fixed setting steps down a decimal at a time if a number can't fit its space. Widgets have their own per-widget setting.
+
 ## Widgets
 
 Three home-screen widgets, each instance configured on its own (the setup screen opens when you add one; on Android 12+ long-press a widget and choose Reconfigure):

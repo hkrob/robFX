@@ -55,6 +55,10 @@ import app.robfx.data.Alert
 import app.robfx.data.Currencies
 import app.robfx.data.Currency
 import app.robfx.data.ThemeMode
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import app.robfx.update.UpdateState
 import app.robfx.ui.theme.Pal
 
@@ -192,6 +196,17 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
             if (Build.VERSION.SDK_INT >= 31) item { ToggleRow("Material You colours", "Take the accent from your wallpaper", s.dynamicColor, vm::setDynamic) }
             item { ToggleRow("Haptics", "Key presses and chart scrubbing", s.haptics, vm::setHaptics) }
 
+            item { Header("Decimals") }
+            item { DecimalsRow("Rates", "Markets, the converter's rate line and the chart", s.rateDecimals, vm::setRateDecimals) }
+            item { DecimalsRow("Converted amounts", "The converter's result", s.amountDecimals, vm::setAmountDecimals) }
+            item { DecimalsRow("Unit prices", "The Unit price tab", s.unitDecimals, vm::setUnitDecimals) }
+            item {
+                Text(
+                    "Auto adapts to each number. A fixed setting steps down if a number can't fit. Widgets have their own setting.",
+                    color = pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                )
+            }
+
             item { Header("Rate alerts") }
             item { NavRow("Manage alerts", "Get notified when a rate crosses a target", onAlerts) }
 
@@ -239,7 +254,7 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
                 }
             }
             item {
-                Text("robFX 1.5.1 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
+                Text("robFX 1.6.0 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
             }
         }
     }
@@ -289,6 +304,30 @@ private fun UpdateRow(vm: ConverterViewModel) {
 }
 
 private data class Quad(val status: String, val label: String, val enabled: Boolean, val action: () -> Unit)
+
+/** One precision setting: a title and a scrollable row of Auto, 0 ... 6. */
+@Composable
+internal fun DecimalsRow(title: String, sub: String, value: Int, onChange: (Int) -> Unit) {
+    val pal = Pal.current
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(title, color = pal.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp))
+        Text(sub, color = pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp))
+        Row(
+            Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            (listOf(Format.AUTO) + (0..6)).forEach { d ->
+                val sel = d == value
+                val label = if (d == Format.AUTO) "Auto" else "$d"
+                Box(
+                    Modifier.semantics { contentDescription = "$title: " + if (d == Format.AUTO) "automatic" else "$d decimals" }
+                        .clip(RoundedCornerShape(50)).background(if (sel) pal.accent else pal.key).clickable { onChange(d) }
+                        .padding(horizontal = 16.dp, vertical = 9.dp),
+                ) { Text(label, color = if (sel) pal.onAccent else pal.keyText, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+            }
+        }
+    }
+}
 
 @Composable
 internal fun ToggleRow(title: String, sub: String, checked: Boolean, onChange: (Boolean) -> Unit) {

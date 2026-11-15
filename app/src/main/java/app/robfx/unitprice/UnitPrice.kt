@@ -275,9 +275,9 @@ object UnitFormat {
         return if (v >= 1) DecimalFormat("#,##0.00", symbols).format(v) else BigDecimal(v).round(MathContext(3)).toPlainString()
     }
 
-    fun money(code: String, v: Double): String {
+    fun money(code: String, v: Double, decimals: Int = app.robfx.calc.Format.AUTO): String {
         val sym = runCatching { java.util.Currency.getInstance(code).getSymbol(Locale.getDefault()) }.getOrNull()?.takeIf { it.isNotBlank() } ?: code
-        return sym + number(v)
+        return sym + app.robfx.calc.Format.number(v, decimals) { number(it) }
     }
 
     fun plainPercent(frac: Double): String {

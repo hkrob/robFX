@@ -73,6 +73,7 @@ data class HomeUi(
     val updateVersion: String? = null,
     val sort: WatchSort = WatchSort.Custom,
     val sortDescending: Boolean = false,
+    val rateDecimals: Int = Format.AUTO,
 )
 
 interface HomeActions {
@@ -136,7 +137,7 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
                     if (ui.rows.isEmpty()) {
                         item(key = "#empty") { Text("Nothing watched yet. Add a pair to follow it here.", color = pal.subtext, fontSize = 15.sp, modifier = Modifier.padding(24.dp)) }
                     }
-                    items(ui.rows, key = { it.pair.key }) { row -> WatchRowItem(row, ui.editing, { actions.open(row.pair) }, { actions.remove(row.pair) }, actions::startEditing) }
+                    items(ui.rows, key = { it.pair.key }) { row -> WatchRowItem(row, ui.editing, ui.rateDecimals, { actions.open(row.pair) }, { actions.remove(row.pair) }, actions::startEditing) }
                     if (short) item(key = "#add") { AddPairButton(actions::add, Modifier.padding(top = 12.dp)) }
                 }
                 if (!short) AddPairButton(actions::add, Modifier.navigationBarsPadding().padding(vertical = 16.dp))
@@ -162,7 +163,7 @@ private fun AddPairButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, onRemove: () -> Unit, onLongPress: () -> Unit) {
+private fun WatchRowItem(row: WatchRow, editing: Boolean, decimals: Int, onOpen: () -> Unit, onRemove: () -> Unit, onLongPress: () -> Unit) {
     val view = LocalView.current
     val pal = Pal.current
     val from = Currencies.get(row.pair.from)
@@ -218,7 +219,7 @@ private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, on
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(rateWidth)) {
                 // Drop significant digits before the type shrinks, and shrink before anything clips.
                 FitText(
-                    candidates = row.rate?.let { r -> listOf(6, 5, 4, 3).map { Format.rate(r.rate, it) }.distinct() } ?: listOf("—"),
+                    candidates = row.rate?.let { r -> Format.fitting(r.rate, decimals, listOf(6, 5, 4, 3).map { Format.rate(r.rate, it) }.distinct()) } ?: listOf("—"),
                     color = pal.text, maxSize = 22, preferredMin = 18, hardMin = 13,
                     modifier = Modifier.fillMaxWidth(),
                 )

@@ -19,6 +19,10 @@ data class Settings(
     val theme: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = false,
     val haptics: Boolean = true,
+    // Decimal places in the app (widgets have their own). Auto keeps the adaptive precision.
+    val rateDecimals: Int = app.robfx.calc.Format.AUTO,
+    val amountDecimals: Int = app.robfx.calc.Format.AUTO,
+    val unitDecimals: Int = app.robfx.calc.Format.AUTO,
     val range: Range = Range.M1,
     val recents: List<String> = emptyList(),
     val autoUpdate: Boolean = true,
@@ -58,6 +62,9 @@ class SettingsStore(private val context: Context) {
         val theme = stringPreferencesKey("theme")
         val dynamic = booleanPreferencesKey("dynamic")
         val haptics = booleanPreferencesKey("haptics")
+        val rateDecimals = androidx.datastore.preferences.core.intPreferencesKey("decimals_rate")
+        val amountDecimals = androidx.datastore.preferences.core.intPreferencesKey("decimals_amount")
+        val unitDecimals = androidx.datastore.preferences.core.intPreferencesKey("decimals_unit")
         val range = stringPreferencesKey("range")
         val recents = stringPreferencesKey("recents")
         val alerts = stringPreferencesKey("alerts")
@@ -83,6 +90,9 @@ class SettingsStore(private val context: Context) {
             theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.System,
             dynamicColor = p[K.dynamic] ?: false,
             haptics = p[K.haptics] ?: true,
+            rateDecimals = p[K.rateDecimals] ?: app.robfx.calc.Format.AUTO,
+            amountDecimals = p[K.amountDecimals] ?: app.robfx.calc.Format.AUTO,
+            unitDecimals = p[K.unitDecimals] ?: app.robfx.calc.Format.AUTO,
             range = p[K.range]?.let { runCatching { Range.valueOf(it) }.getOrNull() } ?: Range.M1,
             recents = p[K.recents]?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
             autoUpdate = p[K.autoUpdate] ?: true,
@@ -172,6 +182,9 @@ class SettingsStore(private val context: Context) {
     suspend fun lastNotifiedVersion(): String? = context.dataStore.data.map { it[K.lastNotified] }.first()
     suspend fun setLastNotifiedVersion(v: String) = context.dataStore.edit { it[K.lastNotified] = v }
     suspend fun setHaptics(v: Boolean) = context.dataStore.edit { it[K.haptics] = v }
+    suspend fun setRateDecimals(v: Int) = context.dataStore.edit { it[K.rateDecimals] = v }
+    suspend fun setAmountDecimals(v: Int) = context.dataStore.edit { it[K.amountDecimals] = v }
+    suspend fun setUnitDecimals(v: Int) = context.dataStore.edit { it[K.unitDecimals] = v }
     suspend fun setRange(v: Range) = context.dataStore.edit { it[K.range] = v.name }
 
     suspend fun updateAlerts(transform: (List<Alert>) -> List<Alert>) = context.dataStore.edit { p ->

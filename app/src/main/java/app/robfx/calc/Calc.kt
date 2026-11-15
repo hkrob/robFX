@@ -168,6 +168,18 @@ object Format {
             .format(BigDecimal.valueOf(v).setScale(d, RoundingMode.HALF_UP))
     }
 
+    const val AUTO = -1
+
+    /** [v] at a chosen number of decimals, or the adaptive form [auto] gives when the setting is Auto. */
+    fun number(v: Double, decimals: Int, auto: (Double) -> String): String = if (decimals == AUTO) auto(v) else fixed(v, decimals)
+
+    /**
+     * Candidates for text that must never clip: the chosen precision first, then one decimal fewer at a time.
+     * With Auto, the adaptive forms in [auto] are used as they are.
+     */
+    fun fitting(v: Double, decimals: Int, auto: List<String>): List<String> =
+        if (decimals == AUTO) auto else (decimals.coerceIn(0, 8) downTo 0).map { fixed(v, it) }.distinct()
+
     fun percent(frac: Double): String {
         val p = frac * 100
         val s = String.format(Locale.US, "%.2f%%", kotlin.math.abs(p))

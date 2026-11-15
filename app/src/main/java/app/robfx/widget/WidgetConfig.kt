@@ -46,7 +46,7 @@ data class WidgetConfig(
         const val MAX_PAIRS = 8
         const val MAX_TARGETS = 6
         val TRANSPARENCY_STEPS = listOf(0, 15, 30, 50)
-        const val AUTO_DECIMALS = -1
+        const val AUTO_DECIMALS = app.robfx.calc.Format.AUTO
         val DECIMAL_CHOICES = listOf(AUTO_DECIMALS, 0, 1, 2, 3, 4, 5, 6)
 
         /** What a widget shows before it has been set up: sensible content drawn from what the app is already showing. */
@@ -65,7 +65,7 @@ data class WidgetConfig(
         get() = amount.replace(",", "").trim().toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() } ?: 1.0
 
     /** A rate or amount at this widget's chosen precision. [auto] is what "Auto" falls back to for that kind of number. */
-    fun number(v: Double, auto: (Double) -> String): String = if (decimals == AUTO_DECIMALS) auto(v) else app.robfx.calc.Format.fixed(v, decimals)
+    fun number(v: Double, auto: (Double) -> String): String = app.robfx.calc.Format.number(v, decimals, auto)
 
     val ownPairs: List<WatchPair>
         get() = pairs.mapNotNull {

@@ -96,6 +96,7 @@ data class UnitPriceUi(
     val hasRecents: Boolean,
     val status: PairRate?,
     val haptics: Boolean = true,
+    val decimals: Int = Format.AUTO,
 )
 
 interface UnitPriceActions {
@@ -130,7 +131,7 @@ private sealed interface UnitSheet {
 
 /** Stateful wrapper: owns which sheet is open, wires everything else to the ViewModel. */
 @Composable
-fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (HomeTab) -> Unit, onOpenSettings: () -> Unit) {
+fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, decimals: Int, onSelectTab: (HomeTab) -> Unit, onOpenSettings: () -> Unit) {
     val comparison by vm.comparison.collectAsState()
     val evaluation by vm.evaluation.collectAsState()
     val focus by vm.focus.collectAsState()
@@ -164,7 +165,7 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, onSelectTab: (Home
         }
     }
 
-    UnitPriceContent(UnitPriceUi(comparison, evaluation, focus, keypadOpen, recents.isNotEmpty(), status, haptics), actions)
+    UnitPriceContent(UnitPriceUi(comparison, evaluation, focus, keypadOpen, recents.isNotEmpty(), status, haptics, decimals), actions)
 
     val close = { sheet = UnitSheet.None }
     when (val s = sheet) {
@@ -252,7 +253,7 @@ fun UnitPriceContent(ui: UnitPriceUi, actions: UnitPriceActions) {
             ) {
                 if (scrollHeader) item(key = "#header") { header() }
                 items(cmp.items.size, key = { it }) { i ->
-                    Box(Modifier.padding(horizontal = 16.dp)) { ItemCard(i, cmp.items[i], ui.evaluation.items.getOrNull(i) ?: ItemResult.Incomplete, ui.evaluation.verdict, cmp, ui.focus, cmp.items.size > 2, actions) }
+                    Box(Modifier.padding(horizontal = 16.dp)) { ItemCard(i, cmp.items[i], ui.evaluation.items.getOrNull(i) ?: ItemResult.Incomplete, ui.evaluation.verdict, cmp, ui.focus, cmp.items.size > 2, actions, ui.decimals) }
                 }
                 if (cmp.items.size < Comparison.MAX_ITEMS) {
                     item {
@@ -386,6 +387,7 @@ private fun ItemCard(
     focus: FocusTarget?,
     canRemove: Boolean,
     actions: UnitPriceActions,
+    decimals: Int = Format.AUTO,
 ) {
     val pal = Pal.current
     val basis = Units.basis(cmp.group, cmp.basis)
@@ -416,7 +418,7 @@ private fun ItemCard(
             when (result) {
                 is ItemResult.Ready -> Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(150.dp)) {
                     FitText(
-                        candidates = listOf(UnitFormat.money(cmp.currency, result.unitPrice)),
+                        candidates = listOf(UnitFormat.money(cmp.currency, result.unitPrice, decimals)),
                         color = if (isBest) pal.positive else pal.text,
                         maxSize = 26, preferredMin = 18, hardMin = 12,
                         modifier = Modifier.fillMaxWidth().height(32.dp),

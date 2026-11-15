@@ -59,7 +59,9 @@ fun RateChart(
     onScrub: () -> Unit,
     modifier: Modifier = Modifier,
     showHeader: Boolean = true,
+    decimals: Int = Format.AUTO,
 ) {
+    val fmt = { v: Double -> Format.number(v, decimals) { Format.rate(it) } }
     val pal = Pal.current
     var scrub by remember(points) { mutableStateOf<Int?>(null) }
     val reveal = remember { Animatable(1f) }
@@ -80,7 +82,7 @@ fun RateChart(
         if (showHeader) Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = shown?.let { Format.rate(it.value) } ?: "—",
+                    text = shown?.let { fmt(it.value) } ?: "—",
                     color = pal.text, fontSize = 22.sp, fontWeight = FontWeight.Light, maxLines = 1,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -102,8 +104,8 @@ fun RateChart(
                 val hi = points.maxOf { it.value }
                 val lo = points.minOf { it.value }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("H  ${Format.rate(hi)}", color = pal.subtext, fontSize = 12.sp)
-                    Text("L  ${Format.rate(lo)}", color = pal.subtext, fontSize = 12.sp)
+                    Text("H  ${fmt(hi)}", color = pal.subtext, fontSize = 12.sp)
+                    Text("L  ${fmt(lo)}", color = pal.subtext, fontSize = 12.sp)
                 }
             }
         }

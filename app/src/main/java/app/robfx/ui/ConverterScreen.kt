@@ -167,8 +167,9 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
                 onTo = { actions.open(Sheet.ToPicker) },
                 compact = compact,
                 onAmount = actions::showKeypad,
+                amountDecimals = settings.amountDecimals,
             )
-            RateLine(settings.from, settings.to, ui.pair, ui.refreshing, onRefresh = actions::refresh)
+            RateLine(settings.from, settings.to, ui.pair, ui.refreshing, settings.rateDecimals, onRefresh = actions::refresh)
             RateChart(
                 points = ui.history.points,
                 loading = ui.history.loading,
@@ -178,6 +179,7 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
                 onRetry = actions::retryHistory,
                 onScrub = onScrub,
                 showHeader = !tight,
+                decimals = settings.rateDecimals,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -297,13 +299,15 @@ private fun Display(
     onTo: () -> Unit,
     compact: Boolean = false,
     onAmount: () -> Unit = {},
+    amountDecimals: Int = Format.AUTO,
 ) {
     val pal = Pal.current
     val ctx = LocalContext.current
     val from = Currencies.get(fromCode)
     val to = Currencies.get(toCode)
-    val result = converted?.let { Format.amount(it) } ?: "—"
-    val resultCandidates = converted?.let { listOf(Format.amount(it), Format.amountCompact(it)).distinct() } ?: listOf(result)
+    // The chosen precision first; if that can't fit it steps down a decimal at a time rather than clipping.
+    val resultCandidates = converted?.let { Format.fitting(it, amountDecimals, listOf(Format.amount(it), Format.amountCompact(it)).distinct()) } ?: listOf("—")
+    val result = resultCandidates.first()
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
         AmountRow(from.code, from.name, from.flag, listOf(Format.pretty(expr)), pal.text, onFrom, null, compact, onAmount)
@@ -351,14 +355,14 @@ private fun AmountRow(code: String, name: String, flag: String, amount: List<Str
 }
 
 @Composable
-private fun RateLine(from: String, to: String, pair: PairRate?, refreshing: Boolean, onRefresh: () -> Unit) {
+private fun RateLine(from: String, to: String, pair: PairRate?, refreshing: Boolean, decimals: Int, onRefresh: () -> Unit) {
     val pal = Pal.current
     Row(
         Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = pair?.let { "1 $from = ${Format.rate(it.rate)} $to" } ?: "Waiting for rates…",
+            text = pair?.let { "1 $from = ${Format.number(it.rate, decimals) { v -> Format.rate(v) }} $to" } ?: "Waiting for rates…",
             color = pal.subtext, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1,
         )
         pair?.let { Text(timeOf(it.updatedAt), color = pal.subtext, fontSize = 12.sp) }
