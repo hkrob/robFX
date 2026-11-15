@@ -28,6 +28,7 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-icons = { module = "androidx.compose.material:material-icons-extended" }
 androidx-datastore = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 androidx-work = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+androidx-glance-testing = { module = "androidx.glance:glance-appwidget-testing", version.ref = "glance" }
 androidx-glance = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { module = "androidx.glance:glance-material3", version.ref = "glance" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }

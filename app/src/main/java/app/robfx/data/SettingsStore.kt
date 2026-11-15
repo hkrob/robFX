@@ -150,6 +150,19 @@ class SettingsStore(private val context: Context) {
         it[K.recentTags] = app.robfx.unitprice.Recents.mru(names(it[K.recentTags]), v).joinToString("\n")
     }
 
+    // One entry per widget on the home screen, keyed by the id Android gives that instance.
+    private fun widgetKey(id: Int) = stringPreferencesKey("widget_$id")
+
+    suspend fun widgetConfig(id: Int): app.robfx.widget.WidgetConfig? = context.dataStore.data.first()[widgetKey(id)]?.let {
+        runCatching { json.decodeFromString(app.robfx.widget.WidgetConfig.serializer(), it) }.getOrNull()
+    }
+
+    suspend fun setWidgetConfig(id: Int, c: app.robfx.widget.WidgetConfig) = context.dataStore.edit {
+        it[widgetKey(id)] = json.encodeToString(app.robfx.widget.WidgetConfig.serializer(), c)
+    }
+
+    suspend fun removeWidgetConfig(id: Int) = context.dataStore.edit { it.remove(widgetKey(id)) }
+
     /** Wipes every saved preference. Tests use it to start from a clean slate; DataStore is shared by the whole process. */
     suspend fun clearAll() = context.dataStore.edit { it.clear() }
 

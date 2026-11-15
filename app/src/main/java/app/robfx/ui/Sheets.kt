@@ -239,7 +239,7 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
                 }
             }
             item {
-                Text("robFX 1.4.0 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
+                Text("robFX 1.5.0 · Informational rates, not for trading.", color = pal.subtext, fontSize = 12.sp, modifier = Modifier.padding(24.dp))
             }
         }
     }
@@ -291,7 +291,7 @@ private fun UpdateRow(vm: ConverterViewModel) {
 private data class Quad(val status: String, val label: String, val enabled: Boolean, val action: () -> Unit)
 
 @Composable
-private fun ToggleRow(title: String, sub: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun ToggleRow(title: String, sub: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val pal = Pal.current
     Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {

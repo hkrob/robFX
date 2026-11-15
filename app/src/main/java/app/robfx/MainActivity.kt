@@ -4,6 +4,10 @@ import android.Manifest
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.content.Intent
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import app.robfx.data.Currencies
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -42,6 +46,26 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_FROM = "pair_from"
+        const val EXTRA_TO = "pair_to"
+    }
+
+    /** A widget tap can ask for a specific pair's converter. */
+    private fun openRequestedPair(intent: Intent?) {
+        val from = intent?.getStringExtra(EXTRA_FROM) ?: return
+        val to = intent.getStringExtra(EXTRA_TO) ?: return
+        if (from in Currencies.codes && to in Currencies.codes && from != to) vm.openPair(WatchPair(from, to))
+        // Consumed: a rotation must not reopen it.
+        intent.removeExtra(EXTRA_FROM)
+        intent.removeExtra(EXTRA_TO)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openRequestedPair(intent)
+    }
+
     private val unitVm: UnitPriceViewModel by viewModels {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -64,6 +88,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openRequestedPair(intent)
         setContent {
             val settings by vm.settings.collectAsState()
             val dark = resolveDark(settings.theme)
@@ -78,7 +103,10 @@ class MainActivity : ComponentActivity() {
             val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
             LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshIfStale(); container.updater.recheckPermission() }
             LifecycleEventEffect(Lifecycle.Event.ON_START) { container.updater.visible = true }
-            LifecycleEventEffect(Lifecycle.Event.ON_STOP) { container.updater.visible = false; unitVm.leave() }
+            LifecycleEventEffect(Lifecycle.Event.ON_STOP) { container.updater.visible = false; unitVm.leave()
+                // Whatever changed in the app (pair, Markets list, fresh rates) shows on the home screen straight away.
+                lifecycleScope.launch { app.robfx.widget.Widgets.updateAll(applicationContext) }
+            }
 
             RobFxTheme(settings.theme, settings.dynamicColor) {
                 val screen by vm.screen.collectAsState()

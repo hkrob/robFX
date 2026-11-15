@@ -234,6 +234,17 @@ class SessionFlow : FlowBase() {
         rule.onNodeWithContentDescription("7").assertIsDisplayed()
     }
 
+    @Test fun aWidgetTapOpensThatPairsConverter() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val intent = android.content.Intent(ctx, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_FROM, "AUD").putExtra(MainActivity.EXTRA_TO, "HKD")
+        ActivityScenario.launch<MainActivity>(intent)
+        rule.waitForIdle(); rule.mainClock.advanceTimeBy(1500)
+        rule.onNodeWithContentDescription("Back to markets").assertIsDisplayed()
+        rule.onNodeWithText("Australian Dollar").assertIsDisplayed()
+        rule.onNodeWithText("Hong Kong Dollar").assertIsDisplayed()
+    }
+
     @Test fun rotationKeepsTheTabAndTheKeypad() {
         val s = launch(); openUnitTab()
         s.recreate(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)

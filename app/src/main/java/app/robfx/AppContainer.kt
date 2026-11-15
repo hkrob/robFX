@@ -22,4 +22,5 @@ class AppContainer(context: Context) {
     // Only Frankfurter and Currency-API can do history; the ECB goes first because it's one request instead of ~28.
     val history = HistoryRepository(listOf(frankfurter, fawaz))
     val updater = Updater(context.applicationContext, settings)
+    val widgetSeries = app.robfx.widget.WidgetSeries(context.applicationContext, history)
 }

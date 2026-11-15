@@ -2,5 +2,10 @@
     <string name="app_name">robFX</string>
     <string name="channel_alerts">Rate alerts</string>
     <string name="channel_updates">App updates</string>
-    <string name="widget_description">Your pair and amount at a glance</string>
+    <string name="widget_single">Single pair</string>
+    <string name="widget_watchlist">Watchlist</string>
+    <string name="widget_convert">Quick convert</string>
+    <string name="widget_description">One pair\'s rate, with its change and a sparkline</string>
+    <string name="widget_watchlist_description">Several pairs at a glance, from Markets or your own list</string>
+    <string name="widget_convert_description">A fixed amount converted into the currencies you choose</string>
 </resources>

@@ -1,12 +1,11 @@
 package app.robfx.work
 
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import app.robfx.container
 import app.robfx.data.AlertChecker
-import app.robfx.widget.RobFxWidget
+import app.robfx.widget.Widgets
 import kotlinx.coroutines.flow.first
 
 class RatesWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -23,7 +22,7 @@ class RatesWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             c.settings.updateAlerts { list -> list.map { if (it.id in ids) it.copy(active = false) else it } }
         }
 
-        RobFxWidget().updateAll(applicationContext)
+        Widgets.updateAll(applicationContext)
         return if (ok) Result.success() else Result.retry()
     }
 }

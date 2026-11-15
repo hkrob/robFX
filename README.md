@@ -9,6 +9,16 @@ Clean, sharp currency converter for Android (Compose, Material 3, compile and ta
 
 Build: `ANDROID_HOME=... ./gradlew :app:assembleDebug`. Headless screenshots: `ROBOLECTRIC_DEPS=<dir with android-all jar> ./gradlew :app:testDebugUnitTest` writes `app/build/screens/`.
 
+## Widgets
+
+Three home-screen widgets, each instance configured on its own (the setup screen opens when you add one; on Android 12+ long-press a widget and choose Reconfigure):
+
+- **Single pair**: one pair's rate, optionally for a custom amount, with change and a sparkline. Shrinks to a single row.
+- **Watchlist**: follows the Markets screen (same order) or its own list of up to 8 pairs. Shows as many rows as fit; make it taller for more.
+- **Quick convert**: a fixed amount converted into up to 6 currencies.
+
+Per widget: theme (Black, Dark, Light, Auto, Material You), background transparency, flags, change, updated time, change period (day, week, month) and what a tap does (open that pair's converter, open Markets, or refresh). Widgets refresh on the shared 30-minute background schedule and whenever you leave the app.
+
 ## Diagnostics
 
 Settings -> Diagnostics -> "Copy diagnostic report" copies the app version, device, screen and font size, why Android last ended the app (including the main-thread trace of an ANR when the system kept one), and any uncaught exception. Paste it into a bug report.
