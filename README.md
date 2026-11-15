@@ -17,7 +17,7 @@ Three home-screen widgets, each instance configured on its own (the setup screen
 - **Watchlist**: follows the Markets screen (same order) or its own list of up to 8 pairs. Shows as many rows as fit; make it taller for more.
 - **Quick convert**: a fixed amount converted into up to 6 currencies.
 
-Per widget: theme (Black, Dark, Light, Auto, Material You), background transparency, flags, change, updated time, change period (day, week, month) and what a tap does (open that pair's converter, open Markets, or refresh). Widgets refresh on the shared 30-minute background schedule and whenever you leave the app.
+Per widget: decimal places (2 by default, 0 to 6 or Auto), theme (Black, Dark, Light, Auto, Material You), background transparency, flags, change, updated time, change period (day, week, month) and what a tap does (open that pair's converter, open Markets, or refresh). Widgets refresh on the shared 30-minute background schedule and whenever you leave the app.
 
 ## Diagnostics
 

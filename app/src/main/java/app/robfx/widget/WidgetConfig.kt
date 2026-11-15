@@ -39,11 +39,15 @@ data class WidgetConfig(
     val showUpdated: Boolean = true,
     val period: WidgetPeriod = WidgetPeriod.Week,
     val tap: WidgetTap = WidgetTap.Converter,
+    /** Decimal places for rates and converted amounts; [AUTO_DECIMALS] keeps the adaptive precision the app uses. */
+    val decimals: Int = 2,
 ) {
     companion object {
         const val MAX_PAIRS = 8
         const val MAX_TARGETS = 6
         val TRANSPARENCY_STEPS = listOf(0, 15, 30, 50)
+        const val AUTO_DECIMALS = -1
+        val DECIMAL_CHOICES = listOf(AUTO_DECIMALS, 0, 1, 2, 3, 4, 5, 6)
 
         /** What a widget shows before it has been set up: sensible content drawn from what the app is already showing. */
         fun default(type: WidgetType, from: String, to: String): WidgetConfig = when (type) {
@@ -59,6 +63,9 @@ data class WidgetConfig(
     /** The amount as a number: anything unreadable or non-positive falls back to 1 rather than breaking the widget. */
     val amountValue: Double
         get() = amount.replace(",", "").trim().toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() } ?: 1.0
+
+    /** A rate or amount at this widget's chosen precision. [auto] is what "Auto" falls back to for that kind of number. */
+    fun number(v: Double, auto: (Double) -> String): String = if (decimals == AUTO_DECIMALS) auto(v) else app.robfx.calc.Format.fixed(v, decimals)
 
     val ownPairs: List<WatchPair>
         get() = pairs.mapNotNull {

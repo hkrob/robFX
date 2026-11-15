@@ -47,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -181,6 +183,17 @@ fun WidgetConfigScreen(cfg: WidgetConfig, recents: List<String>, onChange: (Widg
             }
             if (cfg.theme == WidgetTheme.Dynamic) Note("Material You takes its colours from your wallpaper and is always solid.")
 
+            Header("Decimals")
+            FlowRow(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                WidgetConfig.DECIMAL_CHOICES.forEach { d ->
+                    Choice(if (d == WidgetConfig.AUTO_DECIMALS) "Auto" else "$d", d == cfg.decimals, if (d == WidgetConfig.AUTO_DECIMALS) "Automatic decimals" else "$d decimals") { onChange(cfg.copy(decimals = d)) }
+                }
+            }
+            Note(
+                if (cfg.decimals == WidgetConfig.AUTO_DECIMALS) "Auto adapts to the number: more places for small rates, fewer for large amounts."
+                else "Small rates lose detail at few decimals, e.g. 0.12747 shows as ${app.robfx.calc.Format.fixed(0.12747, cfg.decimals)}.",
+            )
+
             Header("Show")
             if (cfg.type == WidgetType.Single) ToggleRow("Sparkline", "A small chart of the period", cfg.showSpark) { onChange(cfg.copy(showSpark = it)) }
             if (cfg.type != WidgetType.Convert) ToggleRow("Change", "Percent change over the period", cfg.showChange) { onChange(cfg.copy(showChange = it)) }
@@ -229,9 +242,9 @@ private fun Note(text: String) {
 }
 
 @Composable
-private fun Choice(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun Choice(label: String, selected: Boolean, description: String? = null, onClick: () -> Unit) {
     val pal = Pal.current
-    Box(Modifier.clip(RoundedCornerShape(50)).background(if (selected) pal.accent else pal.key).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp)) {
+    Box(Modifier.semantics { if (description != null) contentDescription = description }.clip(RoundedCornerShape(50)).background(if (selected) pal.accent else pal.key).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp)) {
         Text(label, color = if (selected) pal.onAccent else pal.keyText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }

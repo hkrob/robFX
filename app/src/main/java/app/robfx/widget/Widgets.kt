@@ -206,8 +206,8 @@ private fun ChangeText(change: Double?, size: Int = 12) {
 fun PairContent(cfg: WidgetConfig, m: PairModel, size: DpSize, density: Float, action: Action) = Frame(cfg, action) { c ->
     val value = when {
         m.rate == null -> "—"
-        m.amount == 1.0 -> Format.rate(m.rate)
-        else -> Format.amount(m.amount * m.rate)
+        m.amount == 1.0 -> cfg.number(m.rate) { Format.rate(it) }
+        else -> cfg.number(m.amount * m.rate) { Format.amount(it) }
     }
     val title = "${label(m.from, cfg.showFlags)} → ${label(m.to, cfg.showFlags)}"
     val change = if (cfg.showChange) m.change else null
@@ -292,7 +292,7 @@ fun WatchlistContent(cfg: WidgetConfig, m: ListModel, size: DpSize, action: Acti
                     ) {
                         val flags = if (flagsFit) Currencies.get(r.from).flag + Currencies.get(r.to).flag + " " else ""
                         Text("$flags${r.from}/${r.to}", style = TextStyle(color = c.text, fontSize = 14.sp, fontWeight = FontWeight.Bold), maxLines = 1, modifier = GlanceModifier.defaultWeight())
-                        Text(r.rate?.let { Format.rate(it, 5) } ?: "\u2014", style = TextStyle(color = c.text, fontSize = 14.sp), maxLines = 1)
+                        Text(r.rate?.let { v -> cfg.number(v) { Format.rate(it, 5) } } ?: "\u2014", style = TextStyle(color = c.text, fontSize = 14.sp), maxLines = 1)
                         if (changeFits) {
                             Box(GlanceModifier.width(62.dp), contentAlignment = Alignment.CenterEnd) { ChangeText(r.change) }
                         }
@@ -343,7 +343,7 @@ fun ConvertContent(cfg: WidgetConfig, m: ConvertModel, size: DpSize, action: Act
                 m.rows.take(rowsThatFit(size.height, chrome = if (cfg.showUpdated) 66 else 50, rowHeight = 27, max = WidgetConfig.MAX_TARGETS)).forEach { r ->
                     Row(GlanceModifier.fillMaxWidth().padding(vertical = 3.dp).clickable(tapAction(cfg, m.from, r.code)), verticalAlignment = Alignment.CenterVertically) {
                         Text(label(r.code, cfg.showFlags), style = TextStyle(color = c.sub, fontSize = 14.sp, fontWeight = FontWeight.Bold), maxLines = 1, modifier = GlanceModifier.defaultWeight())
-                        Text(r.value?.let { Format.amountCompact(it) } ?: "\u2014", style = TextStyle(color = c.text, fontSize = 16.sp, textAlign = TextAlign.End), maxLines = 1)
+                        Text(r.value?.let { v -> cfg.number(v) { Format.amountCompact(it) } } ?: "\u2014", style = TextStyle(color = c.text, fontSize = 16.sp, textAlign = TextAlign.End), maxLines = 1)
                     }
                 }
             }

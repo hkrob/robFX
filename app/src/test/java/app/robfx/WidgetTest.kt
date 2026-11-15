@@ -73,7 +73,7 @@ class WidgetContentTest {
     private val open = actionStartActivity<MainActivity>()
 
     @Test fun singlePairShowsRateChangeAndPeriod() = runGlanceAppWidgetUnitTest {
-        provideComposable { PairContent(WidgetConfig(), pairModel, DpSize(200.dp, 120.dp), 2f, open) }
+        provideComposable { PairContent(WidgetConfig(decimals = WidgetConfig.AUTO_DECIMALS), pairModel, DpSize(200.dp, 120.dp), 2f, open) }
         onNode(hasText("7.8449")).assertExists()
         onNode(hasText("+0.45%")).assertExists()
         onNode(hasText("week")).assertExists()
@@ -96,11 +96,11 @@ class WidgetContentTest {
     @Test fun oneRowTallIsASingleLine() = runGlanceAppWidgetUnitTest {
         provideComposable { PairContent(WidgetConfig(), pairModel, DpSize(200.dp, 50.dp), 2f, open) }
         onNode(hasText("USD/HKD")).assertExists()
-        onNode(hasText("7.8449")).assertExists()
+        onNode(hasText("7.84")).assertExists()
     }
 
     @Test fun watchlistListsPairsAndChanges() = runGlanceAppWidgetUnitTest {
-        provideComposable { WatchlistContent(WidgetConfig(WidgetType.Watchlist, showFlags = false), listModel, DpSize(260.dp, 190.dp), open) }
+        provideComposable { WatchlistContent(WidgetConfig(WidgetType.Watchlist, showFlags = false, decimals = 4), listModel, DpSize(260.dp, 190.dp), open) }
         onNode(hasText("USD/HKD")).assertExists()
         onNode(hasText("0.6781")).assertExists()
         onNode(hasText("−1.24%")).assertExists()
@@ -131,6 +131,35 @@ class WidgetContentTest {
         assertEquals(2, app.robfx.widget.rowsThatFit(110.dp, 50, 29, 9))
         assertEquals(1, app.robfx.widget.rowsThatFit(40.dp, 50, 29, 9))
         assertEquals(9, app.robfx.widget.rowsThatFit(900.dp, 50, 29, 9))
+    }
+
+    @Test fun decimalsDefaultToTwoAndFollowTheSetting() = runGlanceAppWidgetUnitTest {
+        provideComposable { PairContent(WidgetConfig(), pairModel, DpSize(200.dp, 120.dp), 2f, open) }
+        onNode(androidx.glance.testing.unit.hasTextEqualTo("7.84")).assertExists()
+    }
+
+    @Test fun zeroAndSixDecimals() = runGlanceAppWidgetUnitTest {
+        provideComposable {
+            androidx.glance.layout.Column {
+                PairContent(WidgetConfig(decimals = 0), pairModel, DpSize(200.dp, 120.dp), 2f, open)
+                PairContent(WidgetConfig(decimals = 6), pairModel, DpSize(200.dp, 120.dp), 2f, open)
+            }
+        }
+        onNode(androidx.glance.testing.unit.hasTextEqualTo("8")).assertExists()
+        onNode(androidx.glance.testing.unit.hasTextEqualTo("7.844900")).assertExists()
+    }
+
+    @Test fun decimalsApplyToListsAndConversions() = runGlanceAppWidgetUnitTest {
+        provideComposable {
+            androidx.glance.layout.Column {
+                WatchlistContent(WidgetConfig(WidgetType.Watchlist, showFlags = false), listModel, DpSize(260.dp, 190.dp), open)
+                ConvertContent(WidgetConfig(WidgetType.Convert, showFlags = false, decimals = 1), convertModel, DpSize(200.dp, 150.dp), open)
+            }
+        }
+        onNode(androidx.glance.testing.unit.hasTextEqualTo("0.68")).assertExists()
+        onNode(androidx.glance.testing.unit.hasTextEqualTo("159.78")).assertExists()
+        onNode(androidx.glance.testing.unit.hasTextEqualTo("12.8")).assertExists()
+        onNode(androidx.glance.testing.unit.hasTextEqualTo("85.1")).assertExists()
     }
 
     @Test fun providerClassesMapToTypes() {
@@ -221,8 +250,14 @@ class WidgetConfigScreenTest {
         rule.onNodeWithText("30%").performClick()
         assertEquals(WidgetTheme.Light, cfg.theme)
         assertEquals(30, cfg.transparency)
-        rule.onNodeWithText("Sparkline").performClick()
+        rule.onNodeWithText("Sparkline").performScrollTo().performClick()
         assertEquals(false, cfg.showSpark)
+        assertEquals(2, cfg.decimals)
+        rule.onNodeWithContentDescription("4 decimals").performScrollTo().performClick()
+        assertEquals(4, cfg.decimals)
+        rule.onNodeWithContentDescription("Automatic decimals").performClick()
+        assertEquals(WidgetConfig.AUTO_DECIMALS, cfg.decimals)
+        rule.onNodeWithContentDescription("2 decimals").performClick()
         shot("widget_config_single")
         rule.onNodeWithText("Save widget").performClick()
         assertEquals(1, saved)

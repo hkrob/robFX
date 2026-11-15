@@ -159,6 +159,15 @@ object Format {
         return grouped().format(BigDecimal(v).round(MathContext(significant)))
     }
 
+    /** Exactly [decimals] places, grouped: what a widget shows when you pick a fixed precision. */
+    fun fixed(v: Double, decimals: Int): String {
+        if (v.isNaN() || v.isInfinite()) return "\u2014"
+        val d = decimals.coerceIn(0, 8)
+        return DecimalFormat(if (d == 0) "#,##0" else "#,##0." + "0".repeat(d), symbols)
+            // valueOf goes through the shortest decimal form, so 85.05 rounds to 85.1 rather than tripping over its binary 85.04999...
+            .format(BigDecimal.valueOf(v).setScale(d, RoundingMode.HALF_UP))
+    }
+
     fun percent(frac: Double): String {
         val p = frac * 100
         val s = String.format(Locale.US, "%.2f%%", kotlin.math.abs(p))

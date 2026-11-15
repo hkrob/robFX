@@ -26,6 +26,21 @@ class WidgetConfigTest {
         assertTrue(sparse.showChange)
     }
 
+    @Test fun decimalsDefaultToTwoAndOldConfigsGetTheDefault() {
+        assertEquals(2, WidgetConfig().decimals)
+        assertEquals(2, json.decodeFromString(WidgetConfig.serializer(), """{"type":"Single","from":"USD","to":"HKD"}""").decimals)
+        val auto: (Double) -> String = { "auto" }
+        assertEquals("7.84", WidgetConfig().number(7.8449, auto))
+        assertEquals("8", WidgetConfig(decimals = 0).number(7.8449, auto))
+        assertEquals("1,234.5000", WidgetConfig(decimals = 4).number(1234.5, auto))
+        assertEquals("auto", WidgetConfig(decimals = WidgetConfig.AUTO_DECIMALS).number(7.8449, auto))
+        assertEquals("0.13", WidgetConfig().number(0.12747, auto))
+        // Halves round up as written, not as stored in binary.
+        assertEquals("85.1", WidgetConfig(decimals = 1).number(85.05, auto))
+        assertEquals("1.01", WidgetConfig().number(1.005, auto))
+        assertTrue(2 in WidgetConfig.DECIMAL_CHOICES && WidgetConfig.AUTO_DECIMALS in WidgetConfig.DECIMAL_CHOICES)
+    }
+
     @Test fun amountNeverBreaksTheWidget() {
         fun v(s: String) = WidgetConfig(amount = s).amountValue
         assertEquals(1000.0, v("1,000"), 0.0)
