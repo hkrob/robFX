@@ -233,6 +233,7 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     }
 
     fun toggleKeypad() = _keypadOpen.update { !it }
+    fun showKeypad() { _keypadOpen.value = true }
     fun open(sheet: Sheet) { _sheet.value = sheet }
     fun closeSheet() { _sheet.value = Sheet.None }
 

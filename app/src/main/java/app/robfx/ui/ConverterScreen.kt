@@ -94,6 +94,7 @@ interface ConverterActions {
     fun setRange(r: Range)
     fun retryHistory()
     fun toggleKeypad()
+    fun showKeypad()
     fun open(sheet: Sheet)
 }
 
@@ -119,6 +120,7 @@ fun ConverterScreen(vm: ConverterViewModel, showSheets: Boolean = true, requestN
             override fun setRange(r: Range) = vm.setRange(r)
             override fun retryHistory() = vm.retryHistory()
             override fun toggleKeypad() = vm.toggleKeypad()
+            override fun showKeypad() = vm.showKeypad()
             override fun open(sheet: Sheet) = vm.open(sheet)
         }
     }
@@ -137,7 +139,12 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
         // when the window is wider than it is tall, the keypad moves beside the display instead of under it.
         val screenW = maxWidth
         val wide = maxWidth > maxHeight && maxWidth >= 560.dp
-        val compact = maxHeight < 520.dp
+        val screenH = maxHeight
+        // Three height classes: roomy phones get the full display; shorter ones tighten the amounts and the keypad;
+        // the shortest (small phones, landscape) also drop the chart's header so the line keeps a usable height.
+        // (Side-by-side layouts have the keypad out of the way, so their thresholds are lower.)
+        val compact = maxHeight < (if (wide) 520.dp else 700.dp)
+        val tight = maxHeight < (if (wide) 480.dp else 660.dp)
         val onScrub = { if (settings.haptics) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
 
         @Composable
@@ -159,6 +166,7 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
                 onFrom = { actions.open(Sheet.FromPicker) },
                 onTo = { actions.open(Sheet.ToPicker) },
                 compact = compact,
+                onAmount = actions::showKeypad,
             )
             RateLine(settings.from, settings.to, ui.pair, ui.refreshing, onRefresh = actions::refresh)
             RateChart(
@@ -169,6 +177,7 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
                 onRange = actions::setRange,
                 onRetry = actions::retryHistory,
                 onScrub = onScrub,
+                showHeader = !tight,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -213,7 +222,7 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
                 ) {
                     BoxWithConstraints {
                         // Keys scale down on short screens so the chart never collapses to nothing.
-                        val keyH: Dp = (maxHeight.coerceAtLeast(600.dp) * 0.082f).coerceIn(52.dp, 76.dp)
+                        val keyH: Dp = (screenH * (if (compact) 0.074f else 0.082f)).coerceIn(44.dp, 76.dp)
                         Keypad(
                             keyHeight = keyH,
                             haptics = settings.haptics,
@@ -287,6 +296,7 @@ private fun Display(
     onFrom: () -> Unit,
     onTo: () -> Unit,
     compact: Boolean = false,
+    onAmount: () -> Unit = {},
 ) {
     val pal = Pal.current
     val ctx = LocalContext.current
@@ -296,19 +306,19 @@ private fun Display(
     val resultCandidates = converted?.let { listOf(Format.amount(it), Format.amountCompact(it)).distinct() } ?: listOf(result)
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-        AmountRow(from.code, from.name, from.flag, listOf(Format.pretty(expr)), pal.text, onFrom, null, compact)
+        AmountRow(from.code, from.name, from.flag, listOf(Format.pretty(expr)), pal.text, onFrom, null, compact, onAmount)
         Spacer(Modifier.height(4.dp))
         AmountRow(to.code, to.name, to.flag, resultCandidates, pal.accent, onTo, onLongAmount = {
             val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("Converted amount", result.replace(",", "")))
             Toast.makeText(ctx, "Copied $result", Toast.LENGTH_SHORT).show()
-        }, compact = compact)
+        }, compact = compact, onAmount = onAmount)
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AmountRow(code: String, name: String, flag: String, amount: List<String>, color: androidx.compose.ui.graphics.Color, onCurrency: () -> Unit, onLongAmount: (() -> Unit)?, compact: Boolean = false) {
+private fun AmountRow(code: String, name: String, flag: String, amount: List<String>, color: androidx.compose.ui.graphics.Color, onCurrency: () -> Unit, onLongAmount: (() -> Unit)?, compact: Boolean = false, onAmount: () -> Unit = {}) {
     val pal = Pal.current
     Row(Modifier.fillMaxWidth().height(if (compact) 60.dp else 84.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(
@@ -334,7 +344,8 @@ private fun AmountRow(code: String, name: String, flag: String, amount: List<Str
             hardMin = 18,
             modifier = Modifier
                 .weight(1f)
-                .combinedClickable(onClick = {}, onLongClick = onLongAmount),
+                // Tapping an amount means "I want to type": it brings back a folded keypad.
+                .combinedClickable(interactionSource = null, indication = null, onClick = onAmount, onLongClick = onLongAmount),
         )
     }
 }

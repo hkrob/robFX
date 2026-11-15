@@ -18,8 +18,8 @@ android {
         applicationId = "app.robfx"
         minSdk = 26
         targetSdk = 37
-        versionCode = 12
-        versionName = "1.3.2"
+        versionCode = 13
+        versionName = "1.4.0"
     }
 
     signingConfigs {
@@ -82,6 +82,10 @@ dependencies {
 
 // Robolectric normally downloads its Android jar itself; ROBOLECTRIC_DEPS points it at a pre-fetched folder (offline/CI-proxy friendly).
 tasks.withType<Test>().configureEach {
+    // One JVM per test class. Robolectric gives each test a fresh data directory, but process-wide singletons
+    // (DataStore, coroutine dispatchers) outlive it; sharing them across classes made runs order-dependent and flaky.
+    forkEvery = 1
+    maxParallelForks = 2
     systemProperty("roborazzi.test.record", "true")
     System.getenv("ROBOLECTRIC_DEPS")?.let {
         systemProperty("robolectric.offline", "true")

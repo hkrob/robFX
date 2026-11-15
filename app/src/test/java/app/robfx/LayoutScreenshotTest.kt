@@ -36,6 +36,7 @@ abstract class LayoutShots {
         override fun setRange(r: Range) {}
         override fun retryHistory() {}
         override fun toggleKeypad() {}
+        override fun showKeypad() {}
         override fun open(sheet: Sheet) {}
     }
 

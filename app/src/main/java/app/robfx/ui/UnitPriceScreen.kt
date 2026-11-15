@@ -202,6 +202,8 @@ fun UnitPriceContent(ui: UnitPriceUi, actions: UnitPriceActions) {
     BoxWithConstraints(Modifier.fillMaxSize().background(pal.bg)) {
         val screenW = maxWidth
         val wide = maxWidth > maxHeight && maxWidth >= 560.dp
+        val scrollHeader = wide || maxHeight < 700.dp
+        val lead = if (scrollHeader) 1 else 0
 
         @Composable
         fun ColumnScope.Body() {
@@ -219,12 +221,17 @@ fun UnitPriceContent(ui: UnitPriceUi, actions: UnitPriceActions) {
                 IconBtn(Icons.Outlined.History, "Recent comparisons", actions::openRecents, if (ui.hasRecents) pal.keyText else pal.subtext.copy(alpha = 0.5f))
                 IconBtn(Icons.Outlined.Settings, "Settings", actions::openSettings, pal.keyText)
             }
-            HomeTabs(HomeTab.UnitPrice, actions::selectTab)
-
-            // Group chips: switching group resets units to that group's default, never mixes grams with millilitres.
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                UnitGroup.entries.forEach { g -> Chip(g.label, g == cmp.group) { actions.setGroup(g) } }
+            val header: @Composable () -> Unit = {
+                Column {
+                    HomeTabs(HomeTab.UnitPrice, actions::selectTab)
+                    // Group chips: switching group resets units to that group's default, never mixes grams with millilitres.
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        UnitGroup.entries.forEach { g -> Chip(g.label, g == cmp.group) { actions.setGroup(g) } }
+                    }
+                }
             }
+            // Roomy screens pin the titles; short ones let them scroll away so the items and the verdict keep the space.
+            if (!scrollHeader) header()
 
             VerdictBanner(ui.evaluation, cmp, cmp.tag, actions::pickTag)
 
@@ -233,23 +240,24 @@ fun UnitPriceContent(ui: UnitPriceUi, actions: UnitPriceActions) {
                 val i = ui.focus?.item ?: return@LaunchedEffect
                 if (i >= cmp.items.size) return@LaunchedEffect
                 val info = listState.layoutInfo
-                val v = info.visibleItemsInfo.firstOrNull { it.index == i }
+                val v = info.visibleItemsInfo.firstOrNull { it.index == i + lead }
                 val fully = v != null && v.offset >= 0 && v.offset + v.size <= info.viewportEndOffset
-                if (!fully) listState.animateScrollToItem(i)
+                if (!fully) listState.animateScrollToItem(i + lead)
             }
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth(),
                 state = listState,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                if (scrollHeader) item(key = "#header") { header() }
                 items(cmp.items.size, key = { it }) { i ->
-                    ItemCard(i, cmp.items[i], ui.evaluation.items.getOrNull(i) ?: ItemResult.Incomplete, ui.evaluation.verdict, cmp, ui.focus, cmp.items.size > 2, actions)
+                    Box(Modifier.padding(horizontal = 16.dp)) { ItemCard(i, cmp.items[i], ui.evaluation.items.getOrNull(i) ?: ItemResult.Incomplete, ui.evaluation.verdict, cmp, ui.focus, cmp.items.size > 2, actions) }
                 }
                 if (cmp.items.size < Comparison.MAX_ITEMS) {
                     item {
                         Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(pal.key).clickable(onClick = actions::addItem).padding(vertical = 14.dp),
+                            Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(pal.key).clickable(onClick = actions::addItem).padding(vertical = 14.dp),
                             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(Icons.Outlined.Add, null, tint = pal.accent, modifier = Modifier.size(20.dp))

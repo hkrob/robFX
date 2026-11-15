@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -63,6 +64,8 @@ private fun materialFor(p: Palette): ColorScheme =
         secondaryContainer = p.key, onSecondaryContainer = p.text,
     )
 
+const val MAX_FONT_SCALE = 1.3f
+
 private val LocalPalette = staticCompositionLocalOf { Amoled }
 
 object Pal {
@@ -94,7 +97,11 @@ fun RobFxTheme(mode: ThemeMode, dynamic: Boolean, content: @Composable () -> Uni
         if (dark && mode != ThemeMode.Dark) Palette(Amoled.bg, Amoled.key, Amoled.keyText, p.accent, p.onAccent, Amoled.text, Amoled.subtext, base.positive, base.negative, base.warning, true) else p
     } else base
 
-    CompositionLocalProvider(LocalPalette provides palette) {
+    // Respect the system font size up to 1.3x. Beyond that the dense numeric layouts (keypad, tiles, rate columns)
+    // start to collide, so larger settings are held at 1.3x rather than breaking the screen.
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val capped = remember(density) { androidx.compose.ui.unit.Density(density.density, density.fontScale.coerceAtMost(MAX_FONT_SCALE)) }
+    CompositionLocalProvider(LocalPalette provides palette, androidx.compose.ui.platform.LocalDensity provides capped) {
         MaterialTheme(colorScheme = materialFor(palette), typography = RobFxType, content = content)
     }
 }

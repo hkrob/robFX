@@ -51,6 +51,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.robfx.HomeTab
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import app.robfx.Sheet
 import app.robfx.WatchSort
 import androidx.compose.material.icons.outlined.ArrowDownward
@@ -100,46 +103,59 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
             IconBtn(Icons.Outlined.Settings, "Settings", { actions.sheet(Sheet.Settings) }, pal.keyText)
         }
 
-        HomeTabs(HomeTab.Markets, actions::selectTab)
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 0.dp)) {
-            Text(
-                (ui.status?.let { "Updated ${timeOf(it.updatedAt)} · " } ?: "") + "Past week · tap a pair to convert",
-                color = pal.subtext, fontSize = 14.sp,
-            )
-        }
-
-        ui.updateVersion?.let { v ->
-            Row(
-                Modifier.padding(horizontal = 24.dp, vertical = 6.dp).clip(RoundedCornerShape(50)).background(pal.key)
-                    .clickable { actions.sheet(Sheet.Settings) }.padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("robFX $v is available", color = pal.text, fontSize = 14.sp)
-                Spacer(Modifier.width(12.dp))
-                Box(Modifier.clip(RoundedCornerShape(50)).background(pal.accent).padding(horizontal = 14.dp, vertical = 6.dp)) {
-                    Text("Update", color = pal.onAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            // Short windows (landscape phones, split screen) can't spare a pinned button: it joins the end of the list instead.
+            val short = maxHeight < 420.dp
+            Column(Modifier.fillMaxSize()) {
+                // The titles, status line and sort bar scroll away with the list, so the pairs get the whole screen.
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 16.dp)) {
+                    item(key = "#tabs") { HomeTabs(HomeTab.Markets, actions::selectTab) }
+                    item(key = "#status") {
+                        Text(
+                            (ui.status?.let { "Updated ${timeOf(it.updatedAt)} \u00B7 " } ?: "") + "Past week",
+                            color = pal.subtext, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                    }
+                    ui.updateVersion?.let { v ->
+                        item(key = "#update") {
+                            Row(
+                                Modifier.padding(horizontal = 24.dp, vertical = 6.dp).clip(RoundedCornerShape(50)).background(pal.key)
+                                    .clickable { actions.sheet(Sheet.Settings) }.padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("robFX $v is available", color = pal.text, fontSize = 14.sp)
+                                Spacer(Modifier.width(12.dp))
+                                Box(Modifier.clip(RoundedCornerShape(50)).background(pal.accent).padding(horizontal = 14.dp, vertical = 6.dp)) {
+                                    Text("Update", color = pal.onAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                    if (ui.rows.size > 1) item(key = "#sort") { SortBar(ui.sort, ui.sortDescending, actions::tapSort) }
+                    if (ui.rows.isEmpty()) {
+                        item(key = "#empty") { Text("Nothing watched yet. Add a pair to follow it here.", color = pal.subtext, fontSize = 15.sp, modifier = Modifier.padding(24.dp)) }
+                    }
+                    items(ui.rows, key = { it.pair.key }) { row -> WatchRowItem(row, ui.editing, { actions.open(row.pair) }, { actions.remove(row.pair) }, actions::startEditing) }
+                    if (short) item(key = "#add") { AddPairButton(actions::add, Modifier.padding(top = 12.dp)) }
                 }
+                if (!short) AddPairButton(actions::add, Modifier.navigationBarsPadding().padding(vertical = 16.dp))
             }
         }
+    }
+}
 
-        if (ui.rows.size > 1) SortBar(ui.sort, ui.sortDescending, actions::tapSort)
-
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 8.dp, bottom = 16.dp)) {
-            if (ui.rows.isEmpty()) {
-                item { Text("Nothing watched yet. Add a pair to follow it here.", color = pal.subtext, fontSize = 15.sp, modifier = Modifier.padding(24.dp)) }
-            }
-            items(ui.rows, key = { it.pair.key }) { row -> WatchRowItem(row, ui.editing, { actions.open(row.pair) }, { actions.remove(row.pair) }, actions::startEditing) }
-        }
-
-        Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
-            Row(
-                Modifier.clip(RoundedCornerShape(50)).background(pal.accent).clickable(onClick = actions::add).padding(horizontal = 28.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Outlined.Add, null, tint = pal.onAccent, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Add pair", color = pal.onAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
+@Composable
+private fun AddPairButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val pal = Pal.current
+    Box(modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).background(pal.accent).clickable(onClick = onClick).padding(horizontal = 28.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.Add, null, tint = pal.onAccent, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Add pair", color = pal.onAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
     }
 }
@@ -158,6 +174,17 @@ private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, on
         else -> pal.negative
     }
 
+    // The name and the rate are the content; the sparkline is a nicety and is the first thing to go when space is short
+    // (narrow phones, large fonts, edit mode's extra button).
+    val fontScale = LocalDensity.current.fontScale
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp.coerceAtMost(640.dp)
+    val narrow = screenWidth < 380.dp
+    val side = if (narrow) 20.dp else 24.dp
+    val rateWidth = (if (narrow) 96.dp else 104.dp) * fontScale.coerceIn(1f, 1.3f)
+    val rowWidth = screenWidth - side * 2 - (if (editing) 50.dp else 0.dp)
+    // 150dp is two flags plus a six-letter pair code at 18sp bold: the part that must never be cut.
+    val showSpark = rowWidth >= 150.dp * fontScale + rateWidth + 72.dp
+
     Column {
         Row(
             Modifier.fillMaxWidth()
@@ -171,7 +198,7 @@ private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, on
                         }
                     },
                 )
-                .padding(horizontal = 24.dp, vertical = 14.dp),
+                .padding(horizontal = side, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (editing) {
@@ -181,14 +208,14 @@ private fun WatchRowItem(row: WatchRow, editing: Boolean, onOpen: () -> Unit, on
             }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(from.flag + to.flag, fontSize = 18.sp)
+                    Text(from.flag + to.flag, fontSize = 18.sp, maxLines = 1, softWrap = false)
                     Spacer(Modifier.width(10.dp))
-                    Text("${from.code}/${to.code}", color = pal.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("${from.code}/${to.code}", color = pal.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                 }
-                Text("${from.name} → ${to.name}", color = pal.subtext, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${from.name} \u2192 ${to.name}", color = pal.subtext, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Sparkline(row.points?.map { it.value }.orEmpty(), tone, Modifier.width(72.dp).height(30.dp))
-            Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(104.dp)) {
+            if (showSpark) Sparkline(row.points?.map { it.value }.orEmpty(), tone, Modifier.padding(horizontal = 6.dp).width(60.dp).height(30.dp))
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(rateWidth)) {
                 // Drop significant digits before the type shrinks, and shrink before anything clips.
                 FitText(
                     candidates = row.rate?.let { r -> listOf(6, 5, 4, 3).map { Format.rate(r.rate, it) }.distinct() } ?: listOf("—"),

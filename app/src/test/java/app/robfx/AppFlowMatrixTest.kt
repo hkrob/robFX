@@ -222,6 +222,18 @@ class SessionFlow : FlowBase() {
         rule.onNodeWithText("RECENTLY USED").assertIsDisplayed()
     }
 
+    @Test fun converterAmountBringsBackAFoldedKeypad() {
+        launch()
+        rule.onAllNodesWithText("USD", substring = true)[0].performClick()
+        rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)
+        tap("Hide keypad"); rule.mainClock.advanceTimeBy(1000)
+        rule.onNodeWithContentDescription("7").assertDoesNotExist()
+        // The amount being converted is "1" on a fresh start.
+        rule.onNodeWithText("1").performClick()
+        rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)
+        rule.onNodeWithContentDescription("7").assertIsDisplayed()
+    }
+
     @Test fun rotationKeepsTheTabAndTheKeypad() {
         val s = launch(); openUnitTab()
         s.recreate(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)

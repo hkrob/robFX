@@ -58,6 +58,7 @@ fun RateChart(
     onRetry: () -> Unit,
     onScrub: () -> Unit,
     modifier: Modifier = Modifier,
+    showHeader: Boolean = true,
 ) {
     val pal = Pal.current
     var scrub by remember(points) { mutableStateOf<Int?>(null) }
@@ -75,7 +76,8 @@ fun RateChart(
     val change = if (shown != null && first != null && first.value != 0.0) shown.value / first.value - 1 else null
 
     Column(modifier) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.Top) {
+        // On short screens the header (value, change, high/low) gives its space to the line itself.
+        if (showHeader) Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(
                     text = shown?.let { Format.rate(it.value) } ?: "—",
