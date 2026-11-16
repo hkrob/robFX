@@ -154,12 +154,12 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
         viewModelScope.launch { c.rates.refresh() }
     }
 
-    // True while the entry is the default "1" that Clear restores: the next digit replaces it instead of extending it.
-    private var onDefault = false
+    // True after Clear (back to the default "1") or a tap on the amount: the next number typed replaces the entry.
+    private var replaceNext = false
 
     fun key(k: String) {
-        val next = if (onDefault && k != "C" && k != "<" && k != "=") Calc.keyOnDefault(k) else Calc.key(_expr.value, k)
-        onDefault = k == "C"
+        val next = Calc.keyReplacing(_expr.value, k, replaceNext)
+        replaceNext = k == "C"
         _expr.value = next
         viewModelScope.launch { c.settings.setExpr(next) }
     }
@@ -233,7 +233,11 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     }
 
     fun toggleKeypad() = _keypadOpen.update { !it }
-    fun showKeypad() { _keypadOpen.value = true }
+    /** Tapping the amount: bring the keypad back and treat the amount as selected, so typing replaces it. */
+    fun showKeypad() {
+        _keypadOpen.value = true
+        replaceNext = true
+    }
     fun open(sheet: Sheet) { _sheet.value = sheet }
     fun closeSheet() { _sheet.value = Sheet.None }
 

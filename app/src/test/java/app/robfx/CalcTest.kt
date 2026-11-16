@@ -66,6 +66,18 @@ class CalcTest {
         assertEquals("0", Calc.keyOnDefault("00"))
     }
 
+    @Test fun aSelectedFieldIsReplacedByNumbersButContinuedByOperators() {
+        assertEquals("7", Calc.keyReplacing("125", "7", replace = true))
+        assertEquals("0.", Calc.keyReplacing("125", ".", replace = true))
+        assertEquals("0", Calc.keyReplacing("125", "00", replace = true))
+        assertEquals("125+", Calc.keyReplacing("125", "+", replace = true))
+        assertEquals("12", Calc.keyReplacing("125", "<", replace = true))
+        assertEquals("14", Calc.keyReplacing("2+3\u00D74", "=", replace = true))
+        // Not selected: ordinary typing.
+        assertEquals("1257", Calc.keyReplacing("125", "7", replace = false))
+        assertEquals("7", Calc.keyReplacing("", "7", replace = true))
+    }
+
     @Test fun prettyGroupsAndSpaces() {
         assertEquals("1,234,567.89", Format.pretty("1234567.89"))
         assertEquals("45 ÷ 1,200", Format.pretty("45÷1200"))

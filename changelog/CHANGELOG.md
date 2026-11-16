@@ -3,6 +3,11 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.7.2
+- Tapping a field selects it: the next number you type replaces what was there. The selected value is highlighted.
+- Operators and backspace still carry on from the existing value, so 5 then + 2 works as before.
+- Unit price: tap a unit price to change the currency everything is compared in (same as "In ..." at the top).
+
 ## 1.7.1
 - Unit price, Count: size defaults to 1, so a price alone is enough to compare.
 - Unit price: "Clear" is now "Save & Clear", which is what it does.

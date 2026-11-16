@@ -28,7 +28,14 @@ object Calc {
      * Like [key], for an entry that is still the untouched default (just cleared, or never edited): typing a
      * number replaces the "1" rather than extending it into "15", while an operator carries on from it ("1" then "×" then "5").
      */
-    fun keyOnDefault(key: String): String = if (isEntryKey(key)) key("", key) else key(DEFAULT, key)
+    fun keyOnDefault(key: String): String = keyReplacing(DEFAULT, key, replace = true)
+
+    /**
+     * A key press on a field that was just selected ([replace] true): like "select all" in any text box, typing a number
+     * replaces what is there, while an operator, "=" or backspace carries on from the existing value.
+     */
+    fun keyReplacing(expr: String, key: String, replace: Boolean): String =
+        if (replace && isEntryKey(key)) key("", key) else key(expr, key)
 
     fun key(expr: String, key: String): String = when (key) {
         "C" -> DEFAULT

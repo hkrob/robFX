@@ -51,10 +51,10 @@ class UnitTagTest {
         override fun toggleKeypad() {}
         override fun pickUnit(item: Int) {}
         override fun pickCurrency(item: Int) {}
-        override fun pickHomeCurrency() {}
         override fun openRecents() {}
         override fun pickTag() { log += "pickTag" }
         override fun pickLabel(item: Int) { log += "label $item" }
+        override fun pickHomeCurrency() { log += "home" }
         override fun openSettings() {}
         override fun selectTab(t: HomeTab) {}
     }
@@ -134,6 +134,23 @@ class UnitTagTest {
         rule.onNodeWithText("Clear").assertDoesNotExist()
         rule.onNodeWithText("Save & Clear").assertExists()
         shot("unit_count_default")
+    }
+
+    @Test fun tappingAUnitPriceOpensTheComparisonCurrencyPicker() {
+        val r = Recorder()
+        val ev = UnitPrice.evaluate(base) { _, _ -> null }
+        rule.setContent { RobFxTheme(ThemeMode.Amoled, false) { UnitPriceContent(UnitPriceUi(base, ev, null, true, false, null), r) } }
+        rule.onNodeWithText("HK$5.00").performClick()
+        assertEquals(listOf("home"), r.log)
+    }
+
+    @Test fun aSelectedValueIsMarkedAsSelected() {
+        val ev = UnitPrice.evaluate(base) { _, _ -> null }
+        rule.setContent {
+            RobFxTheme(ThemeMode.Amoled, false) { UnitPriceContent(UnitPriceUi(base, ev, FocusTarget(0, Field.Size), true, false, null, replacing = true), Recorder()) }
+        }
+        rule.onNode(androidx.compose.ui.test.hasStateDescription("Selected, typing replaces it")).assertExists()
+        shot("unit_selected")
     }
 
     @Test fun untaggedShowsAQuietPromptNotAnEmptyLabel() {

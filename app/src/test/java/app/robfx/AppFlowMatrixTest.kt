@@ -271,6 +271,42 @@ class SessionFlow : FlowBase() {
         rule.onNodeWithText("Add pair").assertIsDisplayed()
     }
 
+    @Test fun tappingAFieldSelectsItSoTypingReplaces() {
+        launch(); openUnitTab()
+        // Price 5, size 100 for Item A.
+        tap("5"); tap("Next field"); for (k in listOf("1", "0", "0")) tap(k)
+        rule.onNodeWithText("100").assertIsDisplayed()
+        // Tap the price again and type: it replaces, no delete needed.
+        rule.onAllNodesWithText("PRICE")[0].performClick(); rule.waitForIdle()
+        tap("7"); tap("2")
+        rule.onNodeWithText("72").assertIsDisplayed()
+        rule.onNodeWithText("572").assertDoesNotExist()
+        // Tap the size and press an operator: it carries on from the 100 that's there.
+        rule.onAllNodesWithText("SIZE")[0].performClick(); rule.waitForIdle()
+        tap("+"); tap("5"); tap("0")
+        rule.onNodeWithText("100 + 50").assertIsDisplayed()
+        // Arriving with the Next key selects too: quantity gets 3, then back around to Item B's price.
+        tap("Next field"); tap("3"); tap("Next field"); tap("9")
+        // Backspace on a selected field edits it rather than wiping it.
+        rule.onAllNodesWithText("PRICE")[0].performClick(); rule.waitForIdle()
+        tap("Delete")
+        rule.onNodeWithText("72").assertDoesNotExist()
+        rule.onNodeWithText("100 + 50").assertIsDisplayed()
+        shot("flow_replace")
+    }
+
+    @Test fun converterAmountIsReplacedAfterTappingIt() {
+        launch()
+        rule.onAllNodesWithText("USD", substring = true)[0].performClick()
+        rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)
+        tap("5"); tap("0")
+        rule.onNodeWithText("150").assertIsDisplayed()
+        rule.onNodeWithText("150").performClick(); rule.waitForIdle()
+        tap("2"); tap("5")
+        rule.onNodeWithText("25").assertIsDisplayed()
+        rule.onNodeWithText("15025").assertDoesNotExist()
+    }
+
     @Test fun rotationKeepsTheTabAndTheKeypad() {
         val s = launch(); openUnitTab()
         s.recreate(); rule.waitForIdle(); rule.mainClock.advanceTimeBy(1000)

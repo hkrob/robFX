@@ -46,6 +46,10 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
     private val _focus = MutableStateFlow<FocusTarget?>(FocusTarget(0, Field.Price))
     val focus: StateFlow<FocusTarget?> = _focus
 
+    // True from the moment a field is entered until the first key: its value is "selected", and typing replaces it.
+    private val _replacing = MutableStateFlow(true)
+    val replacing: StateFlow<Boolean> = _replacing
+
     private val _keypadOpen = MutableStateFlow(true)
     val keypadOpen: StateFlow<Boolean> = _keypadOpen
 
@@ -96,6 +100,7 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
     fun focusOn(item: Int, field: Field) {
         _focus.value = FocusTarget(item, field)
         _keypadOpen.value = true
+        _replacing.value = true
     }
 
     private fun valueOf(item: UnitItem, f: Field) = when (f) { Field.Price -> item.price; Field.Size -> item.size; Field.Qty -> item.qty }
@@ -110,7 +115,8 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
     fun key(k: String) {
         val f = _focus.value ?: return
         val item = _comparison.value.items.getOrNull(f.item) ?: return
-        val next = if (k == "C") "" else Calc.key(valueOf(item, f.field), k)
+        val next = if (k == "C") "" else Calc.keyReplacing(valueOf(item, f.field), k, _replacing.value)
+        _replacing.value = false
         editItem(f.item) { withValue(it, f.field, next) }
     }
 
@@ -123,6 +129,7 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
             Field.Size -> FocusTarget(f.item, Field.Qty)
             Field.Qty -> FocusTarget((f.item + 1) % n, Field.Price)
         }
+        _replacing.value = true
     }
 
     fun setGroup(g: UnitGroup) = edit { if (it.group == g) it else it.withGroup(g, us) }
@@ -144,6 +151,7 @@ class UnitPriceViewModel(app: Application) : AndroidViewModel(app) {
         edit { it.withItemAdded() }
         _focus.value = FocusTarget(_comparison.value.items.lastIndex, Field.Price)
         _keypadOpen.value = true
+        _replacing.value = true
     }
 
     fun removeItem(i: Int) {

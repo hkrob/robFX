@@ -69,6 +69,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import app.robfx.unitprice.Recents
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import app.robfx.Field
 import app.robfx.FocusTarget
 import app.robfx.HomeTab
@@ -97,6 +99,8 @@ data class UnitPriceUi(
     val status: PairRate?,
     val haptics: Boolean = true,
     val decimals: Int = Format.AUTO,
+    /** The focused field's value is selected: the next number typed replaces it. */
+    val replacing: Boolean = false,
 )
 
 interface UnitPriceActions {
@@ -135,6 +139,7 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, decimals: Int, onS
     val comparison by vm.comparison.collectAsState()
     val evaluation by vm.evaluation.collectAsState()
     val focus by vm.focus.collectAsState()
+    val replacing by vm.replacing.collectAsState()
     val keypadOpen by vm.keypadOpen.collectAsState()
     val recents by vm.recents.collectAsState()
     val status by vm.status.collectAsState()
@@ -165,7 +170,7 @@ fun UnitPriceScreen(vm: UnitPriceViewModel, haptics: Boolean, decimals: Int, onS
         }
     }
 
-    UnitPriceContent(UnitPriceUi(comparison, evaluation, focus, keypadOpen, recents.isNotEmpty(), status, haptics, decimals), actions)
+    UnitPriceContent(UnitPriceUi(comparison, evaluation, focus, keypadOpen, recents.isNotEmpty(), status, haptics, decimals, replacing), actions)
 
     val close = { sheet = UnitSheet.None }
     when (val s = sheet) {
@@ -217,7 +222,7 @@ fun UnitPriceContent(ui: UnitPriceUi, actions: UnitPriceActions) {
                 ) {
                     Text("In ", color = pal.subtext, fontSize = 13.sp)
                     Text(cmp.currency, color = pal.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Icon(Icons.Outlined.ExpandMore, "Compare in ${cmp.currency}", tint = pal.accent, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Outlined.ExpandMore, "Comparison currency: ${cmp.currency}. Tap to change", tint = pal.accent, modifier = Modifier.size(16.dp))
                 }
                 IconBtn(Icons.Outlined.History, "Recent comparisons", actions::openRecents, if (ui.hasRecents) pal.keyText else pal.subtext.copy(alpha = 0.5f))
                 IconBtn(Icons.Outlined.Settings, "Settings", actions::openSettings, pal.keyText)
@@ -253,7 +258,7 @@ fun UnitPriceContent(ui: UnitPriceUi, actions: UnitPriceActions) {
             ) {
                 if (scrollHeader) item(key = "#header") { header() }
                 items(cmp.items.size, key = { it }) { i ->
-                    Box(Modifier.padding(horizontal = 16.dp)) { ItemCard(i, cmp.items[i], ui.evaluation.items.getOrNull(i) ?: ItemResult.Incomplete, ui.evaluation.verdict, cmp, ui.focus, cmp.items.size > 2, actions, ui.decimals) }
+                    Box(Modifier.padding(horizontal = 16.dp)) { ItemCard(i, cmp.items[i], ui.evaluation.items.getOrNull(i) ?: ItemResult.Incomplete, ui.evaluation.verdict, cmp, ui.focus, cmp.items.size > 2, actions, ui.decimals, ui.replacing) }
                 }
                 if (cmp.items.size < Comparison.MAX_ITEMS) {
                     item {
@@ -395,6 +400,7 @@ private fun ItemCard(
     canRemove: Boolean,
     actions: UnitPriceActions,
     decimals: Int = Format.AUTO,
+    replacing: Boolean = false,
 ) {
     val pal = Pal.current
     val basis = Units.basis(cmp.group, cmp.basis)
@@ -423,7 +429,13 @@ private fun ItemCard(
             }
             // The answer sits on the title row, so both cards stay on screen with the keypad open.
             when (result) {
-                is ItemResult.Ready -> Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(150.dp)) {
+                // Tapping the price changes the currency everything is compared in (the same picker as "In HKD" up top).
+                is ItemResult.Ready -> Column(
+                    horizontalAlignment = Alignment.End,
+                    // No clip here: it would shave the descenders off "per 100 g".
+                    modifier = Modifier.width(150.dp)
+                        .clickable(onClickLabel = "Change the comparison currency", onClick = actions::pickHomeCurrency),
+                ) {
                     FitText(
                         candidates = listOf(UnitFormat.money(cmp.currency, result.unitPrice, decimals)),
                         color = if (isBest) pal.positive else pal.text,
@@ -443,11 +455,11 @@ private fun ItemCard(
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tile("PRICE", item.price, "0", focus == FocusTarget(index, Field.Price), Modifier.weight(1.15f),
+            Tile("PRICE", item.price, "0", focus == FocusTarget(index, Field.Price), replacing, Modifier.weight(1.15f),
                 chip = item.currency, chipAccent = item.currency != cmp.currency, onChip = { actions.pickCurrency(index) }) { actions.focusOn(index, Field.Price) }
-            Tile("SIZE", item.size, if (cmp.group == UnitGroup.Count) "1" else "0", focus == FocusTarget(index, Field.Size), Modifier.weight(1.15f),
+            Tile("SIZE", item.size, if (cmp.group == UnitGroup.Count) "1" else "0", focus == FocusTarget(index, Field.Size), replacing, Modifier.weight(1.15f),
                 chip = unit?.short ?: "?", chipAccent = false, onChip = { actions.pickUnit(index) }) { actions.focusOn(index, Field.Size) }
-            Tile("QTY", item.qty, "1", focus == FocusTarget(index, Field.Qty), Modifier.weight(0.7f), chip = null, chipAccent = false, onChip = {}) { actions.focusOn(index, Field.Qty) }
+            Tile("QTY", item.qty, "1", focus == FocusTarget(index, Field.Qty), replacing, Modifier.weight(0.7f), chip = null, chipAccent = false, onChip = {}) { actions.focusOn(index, Field.Qty) }
         }
         if (result is ItemResult.Ready) {
             val notes = buildList {
@@ -474,6 +486,7 @@ private fun Tile(
     value: String,
     placeholder: String,
     focused: Boolean,
+    replacing: Boolean,
     modifier: Modifier,
     chip: String?,
     chipAccent: Boolean,
@@ -500,13 +513,20 @@ private fun Tile(
             }
         }
         val shown = if (value.isEmpty()) placeholder else Format.pretty(value)
+        // Selected, like highlighted text in any text box: the next number typed replaces it.
+        val selected = focused && replacing && value.isNotEmpty()
+        Box(
+            Modifier.padding(end = 6.dp).clip(RoundedCornerShape(6.dp)).background(if (selected) pal.accent.copy(alpha = 0.28f) else Color.Transparent)
+                .semantics { if (selected) stateDescription = "Selected, typing replaces it" },
+        ) {
         FitText(
             candidates = listOf(shown),
             color = if (value.isEmpty()) pal.subtext.copy(alpha = 0.55f) else pal.text,
             maxSize = 24, preferredMin = 15, hardMin = 11,
-            modifier = Modifier.fillMaxWidth().height(32.dp).padding(end = 6.dp),
+            modifier = (if (selected) Modifier else Modifier.fillMaxWidth()).height(32.dp).padding(horizontal = if (selected) 4.dp else 0.dp),
             textAlign = TextAlign.Start, alignment = Alignment.CenterStart,
         )
+        }
     }
 }
 
