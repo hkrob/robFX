@@ -270,13 +270,16 @@ fun UnitPriceContent(ui: UnitPriceUi, actions: UnitPriceActions) {
             }
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("PER", color = pal.subtext, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.padding(start = 8.dp, end = 4.dp))
-                Units.bases.getValue(cmp.group).forEach { b -> Chip(b.label, b.id == cmp.basis) { actions.setBasis(b.id) } }
-                Spacer(Modifier.weight(1f))
+                // The chips scroll if they run out of room, so the action on the right is never squeezed or cut.
+                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                    Text("PER", color = pal.subtext, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.padding(start = 8.dp, end = 4.dp))
+                    Units.bases.getValue(cmp.group).forEach { b -> Chip(b.label, b.id == cmp.basis) { actions.setBasis(b.id) } }
+                }
                 Text(
-                    "Clear",
+                    "Save & Clear",
                     color = pal.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = actions::clearAll).padding(horizontal = 10.dp, vertical = 7.dp),
+                    maxLines = 1, softWrap = false,
+                    modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(50)).clickable(onClickLabel = "Save this comparison to history and start a new one", onClick = actions::clearAll).padding(horizontal = 10.dp, vertical = 7.dp),
                 )
             }
         }
@@ -352,7 +355,11 @@ private fun VerdictBanner(e: Evaluation, c: Comparison, tag: String, onTag: () -
                     Text("  within 0.5%", color = pal.subtext, fontSize = 13.sp)
                 }
                 Verdict.None -> Text(
-                    if (e.readyCount == 1) "Fill in a second item" else "Enter a price and size for two items",
+                    when {
+                        e.readyCount == 1 -> "Fill in a second item"
+                        c.group == UnitGroup.Count -> "Enter a price for two items"
+                        else -> "Enter a price and size for two items"
+                    },
                     color = pal.subtext, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -427,7 +434,7 @@ private fun ItemCard(
                 }
                 is ItemResult.NoRate -> Text("No rate for ${result.currency}", color = pal.negative, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 ItemResult.Mismatch -> Text("Unit mismatch", color = pal.negative, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                ItemResult.Incomplete -> Text("Enter price & size", color = pal.subtext.copy(alpha = 0.8f), fontSize = 13.sp)
+                ItemResult.Incomplete -> Text(if (cmp.group == UnitGroup.Count) "Enter a price" else "Enter price & size", color = pal.subtext.copy(alpha = 0.8f), fontSize = 13.sp)
             }
             if (canRemove) {
                 Box(Modifier.size(36.dp).clip(CircleShape).clickable { actions.removeItem(index) }, contentAlignment = Alignment.Center) {
@@ -438,7 +445,7 @@ private fun ItemCard(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Tile("PRICE", item.price, "0", focus == FocusTarget(index, Field.Price), Modifier.weight(1.15f),
                 chip = item.currency, chipAccent = item.currency != cmp.currency, onChip = { actions.pickCurrency(index) }) { actions.focusOn(index, Field.Price) }
-            Tile("SIZE", item.size, "0", focus == FocusTarget(index, Field.Size), Modifier.weight(1.15f),
+            Tile("SIZE", item.size, if (cmp.group == UnitGroup.Count) "1" else "0", focus == FocusTarget(index, Field.Size), Modifier.weight(1.15f),
                 chip = unit?.short ?: "?", chipAccent = false, onChip = { actions.pickUnit(index) }) { actions.focusOn(index, Field.Size) }
             Tile("QTY", item.qty, "1", focus == FocusTarget(index, Field.Qty), Modifier.weight(0.7f), chip = null, chipAccent = false, onChip = {}) { actions.focusOn(index, Field.Qty) }
         }

@@ -304,6 +304,19 @@ class UnitPriceTest {
         assertTrue(Recents.summary(c, UnitPrice.evaluate(c, noRates)).contains("best Costco"))
     }
 
+    @Test fun inCountModeABlankSizeMeansOne() {
+        fun each(price: String, size: String = "", qty: String = "") = UnitItem(price, size, qty, "each", "HKD")
+        val e = UnitPrice.evaluate(cmp(each("5"), each("12", qty = "3"), group = UnitGroup.Count, basis = "each"), noRates)
+        assertEquals(5.0, ready(e, 0).unitPrice, 1e-9)
+        assertEquals(4.0, ready(e, 1).unitPrice, 1e-9)
+        assertEquals(1, (e.verdict as Verdict.Winner).index)
+        // A typed size still wins, and a typed zero is still not a size.
+        assertEquals(2.5, ready(UnitPrice.evaluate(cmp(each("5", "2"), each("1"), group = UnitGroup.Count, basis = "each"), noRates), 0).unitPrice, 1e-9)
+        assertTrue(UnitPrice.evaluate(cmp(each("5", "0"), each("1"), group = UnitGroup.Count, basis = "each"), noRates).items[0] is ItemResult.Incomplete)
+        // Other groups still need a size.
+        assertTrue(UnitPrice.evaluate(cmp(g("5", ""), g("7", "150")), noRates).items[0] is ItemResult.Incomplete)
+    }
+
     @Test fun summaryNamesTheBestItem() {
         val c = cmp(g("5", "100"), g("7", "150"))
         val e = UnitPrice.evaluate(c, noRates)

@@ -3,6 +3,10 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.7.1
+- Unit price, Count: size defaults to 1, so a price alone is enough to compare.
+- Unit price: "Clear" is now "Save & Clear", which is what it does.
+
 ## 1.7.0
 - New About tab: what robFX does, what's new, and how to get in touch.
 - Releases now publish themselves, with these notes, whenever a new version lands.

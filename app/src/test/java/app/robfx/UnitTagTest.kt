@@ -125,6 +125,17 @@ class UnitTagTest {
         shot("unit_label_editor")
     }
 
+    @Test fun countModePromptsForAPriceOnlyAndTheActionSaysSaveAndClear() {
+        val c = Comparison(group = UnitGroup.Count, basis = "each", currency = "HKD", items = listOf(UnitItem("", "", "", "each", "HKD"), UnitItem("", "", "", "each", "HKD")))
+        val r = Recorder()
+        rule.setContent { RobFxTheme(ThemeMode.Amoled, false) { UnitPriceContent(UnitPriceUi(c, UnitPrice.evaluate(c) { _, _ -> null }, null, true, false, null), r) } }
+        rule.onNodeWithText("Enter a price for two items").assertExists()
+        rule.onNodeWithText("Enter price & size").assertDoesNotExist()
+        rule.onNodeWithText("Clear").assertDoesNotExist()
+        rule.onNodeWithText("Save & Clear").assertExists()
+        shot("unit_count_default")
+    }
+
     @Test fun untaggedShowsAQuietPromptNotAnEmptyLabel() {
         val ev = UnitPrice.evaluate(base) { _, _ -> null }
         rule.setContent { RobFxTheme(ThemeMode.Amoled, false) { UnitPriceContent(UnitPriceUi(base, ev, null, true, false, null), Recorder()) } }

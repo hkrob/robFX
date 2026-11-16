@@ -206,7 +206,8 @@ object UnitPrice {
         val raw = c.items.map { item ->
             val unit = Units.byId[item.unit]
             val price = number(item.price)
-            val size = number(item.size)
+            // Counting things, an empty size means "one of them"; a weight or a volume has no such obvious default.
+            val size = if (item.size.isBlank() && c.group == UnitGroup.Count) 1.0 else number(item.size)
             val qty = if (item.qty.isBlank()) 1.0 else number(item.qty)
             when {
                 unit == null || unit.group != c.group -> ItemResult.Mismatch
