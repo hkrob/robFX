@@ -3,16 +3,23 @@ name: Release
 # Publishes a signed APK as a GitHub release. The app's built-in updater reads the latest release,
 # so this is what "shipping an update" means.
 #
-#   1. Bump versionCode and versionName in app/build.gradle.kts, push to main.
-#   2. Actions -> Release -> Run workflow   (or push a tag that matches, e.g. v1.0.4)
+# It runs by itself: bump versionCode and versionName in app/build.gradle.kts, add a "## <version>"
+# section to changelog/CHANGELOG.md, and push to main. A version that is already released is skipped.
+# It can also be run by hand (Actions -> Release -> Run workflow) or by pushing a matching tag (v1.7.0).
 
 on:
-  workflow_dispatch:
   push:
+    branches: [main]
+    paths: ["app/build.gradle.kts"]
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   # SHA-256 of the signing certificate. A build signed by anything else would be refused by phones that
@@ -20,13 +27,15 @@ env:
   EXPECTED_SIGNER: 9baf6701c1ece2451d07c0f8c19a45b5509e8538bed94e16ae7cb95fea9f0afe
 
 jobs:
-  release:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Work out the version
+      - name: Work out the version and whether it needs releasing
         id: v
         run: |
           VERSION=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)
@@ -34,12 +43,38 @@ jobs:
           if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
             echo "::error::Tag ${GITHUB_REF_NAME} does not match versionName ${VERSION}"; exit 1
           fi
-          if gh release view "v${VERSION}" >/dev/null 2>&1; then
-            echo "::error::Release v${VERSION} already exists. Bump versionName/versionCode first."; exit 1
-          fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            # A push that didn't change the version (or a re-run) is not an error: there is simply nothing to do.
+            echo "::notice::v${VERSION} is already released; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
+
+  release:
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Release notes from the changelog
+        run: |
+          # Everything under "## <version>" up to the next "## " heading.
+          awk -v v="$VERSION" '
+            /^## / { on = ($2 == v || $2 == "v" v) ; next }
+            on { print }
+          ' changelog/CHANGELOG.md | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::changelog/CHANGELOG.md has no '## ${VERSION}' section. Add one describing this version."; exit 1
+          fi
+          cat notes.md
 
       - name: Check signing secrets
         run: |
@@ -79,10 +114,10 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Test and build the release APK
+      - name: Test, lint and build the release APK
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
 
       - name: Verify the signature
         run: |
@@ -94,15 +129,12 @@ jobs:
 
       - name: Name the artifacts
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "robFX-${{ steps.v.outputs.version }}.apk"
-          sha256sum "robFX-${{ steps.v.outputs.version }}.apk" > "robFX-${{ steps.v.outputs.version }}.apk.sha256"
+          cp app/build/outputs/apk/release/app-release.apk "robFX-${VERSION}.apk"
+          sha256sum "robFX-${VERSION}.apk" > "robFX-${VERSION}.apk.sha256"
 
       - name: Publish the release
         run: |
-          gh release create "v${{ steps.v.outputs.version }}" \
-            "robFX-${{ steps.v.outputs.version }}.apk" "robFX-${{ steps.v.outputs.version }}.apk.sha256" \
-            --title "robFX ${{ steps.v.outputs.version }}" \
-            --target "${GITHUB_SHA}" \
-            --generate-notes
+          gh release create "v${VERSION}" "robFX-${VERSION}.apk" "robFX-${VERSION}.apk.sha256" \
+            --title "robFX ${VERSION}" --target "${GITHUB_SHA}" --notes-file notes.md
         env:
           GH_TOKEN: ${{ github.token }}

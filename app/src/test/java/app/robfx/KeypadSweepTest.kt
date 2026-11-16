@@ -58,6 +58,7 @@ class KeypadSweepTest {
                 }
             }
             scenario.close()
+            TestStorage.drain()
         }
         println("KEYPAD SWEEP PROBLEMS (${problems.size}):\n" + problems.joinToString("\n"))
         assertTrue(problems.joinToString("\n"), problems.isEmpty())

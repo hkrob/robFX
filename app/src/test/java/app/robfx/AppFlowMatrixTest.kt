@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollToNode
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -31,10 +32,20 @@ import java.io.File
 abstract class FlowBase {
     @get:Rule val rule = createEmptyComposeRule()
 
+    private val scenarios = mutableListOf<ActivityScenario<MainActivity>>()
+
     @org.junit.Before fun cleanSlate() = TestStorage.reset()
 
-    protected fun launch(): ActivityScenario<MainActivity> {
-        val s = ActivityScenario.launch(MainActivity::class.java)
+    /** Close every screen (cancelling its work), then let any settings write already under way finish. */
+    @org.junit.After fun closeAndDrain() {
+        scenarios.forEach { runCatching { it.close() } }
+        scenarios.clear()
+        TestStorage.drain()
+    }
+
+    protected fun launch(intent: android.content.Intent? = null): ActivityScenario<MainActivity> {
+        val s = if (intent == null) ActivityScenario.launch(MainActivity::class.java) else ActivityScenario.launch(intent)
+        scenarios += s
         rule.waitForIdle()
         return s
     }
@@ -238,11 +249,26 @@ class SessionFlow : FlowBase() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val intent = android.content.Intent(ctx, MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_FROM, "AUD").putExtra(MainActivity.EXTRA_TO, "HKD")
-        ActivityScenario.launch<MainActivity>(intent)
-        rule.waitForIdle(); rule.mainClock.advanceTimeBy(1500)
+        launch(intent)
+        rule.mainClock.advanceTimeBy(1500)
+        // The pair is saved off the main thread, so wait for it rather than for the animation clock.
+        rule.waitUntil(8_000) { rule.onAllNodesWithText("Australian Dollar").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Back to markets").assertIsDisplayed()
         rule.onNodeWithText("Australian Dollar").assertIsDisplayed()
         rule.onNodeWithText("Hong Kong Dollar").assertIsDisplayed()
+    }
+
+    @Test fun aboutTabShowsTheRealChangelogAndBackReturnsToMarkets() {
+        launch()
+        rule.onNodeWithText("About").performClick()
+        rule.waitForIdle(); rule.mainClock.advanceTimeBy(800)
+        rule.onNodeWithText("robFX@robcloud.org").assertIsDisplayed()
+        // The bundled changelog made it into the app: its newest entry is on screen somewhere in the list.
+        rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToNode(androidx.compose.ui.test.hasText("INSTALLED"))
+        shot("flow_about")
+        androidx.test.espresso.Espresso.pressBack()
+        rule.waitForIdle(); rule.mainClock.advanceTimeBy(800)
+        rule.onNodeWithText("Add pair").assertIsDisplayed()
     }
 
     @Test fun rotationKeepsTheTabAndTheKeypad() {

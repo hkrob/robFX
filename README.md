@@ -39,11 +39,15 @@ robFX updates itself from this repo's GitHub releases.
 ## CI and releasing
 
 - `.github/workflows/ci.yml` runs unit tests, lint and a debug build on every push and pull request.
-- `.github/workflows/release.yml` builds the signed APK and publishes a GitHub release. Steps:
+- `.github/workflows/release.yml` builds the signed APK and publishes a GitHub release **automatically** when a new version lands on `main`. To ship a version:
+  - bump `versionCode` and `versionName` in `app/build.gradle.kts`;
+  - add a `## <version>` section to `changelog/CHANGELOG.md` (it becomes the release notes and the About tab's "What's new"; a test fails the build if it's missing);
+  - push to `main`. A version that is already released is skipped.
+
+  One-time setup:
   1. Add four repository secrets (Settings -> Secrets and variables -> Actions):
      `KEYSTORE_BASE64` (`base64 -w0 robfx.keystore`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`
      (the values are in your `keystore.properties`).
-  2. Bump `versionCode` and `versionName` in `app/build.gradle.kts` and push to `main`.
-  3. Actions -> Release -> Run workflow (or push a tag matching the version, e.g. `v1.0.4`).
+  2. It can also be run by hand: Actions -> Release -> Run workflow, or push a tag matching the version (e.g. `v1.7.0`).
 
   The job refuses to publish if the APK isn't signed with the key whose SHA-256 is pinned in the workflow, since phones that already have robFX would reject it.

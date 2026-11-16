@@ -26,6 +26,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -117,7 +118,7 @@ class MainActivity : ComponentActivity() {
                 val tab by vm.homeTab.collectAsState()
                 // Leaving the unit price tab is the moment a comparison counts as done, so it goes into the recents then.
                 val selectTab: (HomeTab) -> Unit = { t ->
-                    if (t == HomeTab.Markets) unitVm.leave()
+                    if (tab == HomeTab.UnitPrice && t != HomeTab.UnitPrice) unitVm.leave()
                     vm.selectTab(t)
                 }
                 // Wide windows (tablets, unfolded foldables, landscape) get a centred column instead of a stretched phone UI.
@@ -130,12 +131,34 @@ class MainActivity : ComponentActivity() {
                 AppRoot(
                         screen = screen,
                         editing = editing,
-                        unitTabOpen = tab == HomeTab.UnitPrice,
+                        unitTabOpen = tab != HomeTab.Markets,
                         onCloseUnitTab = { selectTab(HomeTab.Markets) },
                         onBackToMarkets = vm::goHome,
                         onStopEditing = { vm.setEditing(false) },
                         markets = {
-                            if (tab == HomeTab.UnitPrice) {
+                            if (tab == HomeTab.About) {
+                                val ctx = androidx.compose.ui.platform.LocalContext.current
+                                val releases = remember { app.robfx.about.Changelog.load(ctx) }
+                                app.robfx.ui.AboutContent(
+                                    app.robfx.ui.AboutUi(vm.currentVersion, releases),
+                                    object : app.robfx.ui.AboutActions {
+                                        override fun selectTab(t: HomeTab) = selectTab(t)
+                                        override fun openSettings() = vm.open(Sheet.Settings)
+                                        override fun openSource() {
+                                            runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(app.robfx.ui.SOURCE_URL))) }
+                                        }
+                                        override fun email() {
+                                            val mail = Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:${app.robfx.ui.CONTACT_EMAIL}?subject=" + android.net.Uri.encode("robFX ${vm.currentVersion}")))
+                                            // No mail app set up: put the address on the clipboard instead of doing nothing.
+                                            if (runCatching { startActivity(mail) }.isFailure) {
+                                                val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                                cm.setPrimaryClip(android.content.ClipData.newPlainText("robFX contact", app.robfx.ui.CONTACT_EMAIL))
+                                                android.widget.Toast.makeText(this@MainActivity, "Email address copied", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
+                                )
+                            } else if (tab == HomeTab.UnitPrice) {
                                 UnitPriceScreen(unitVm, settings.haptics, settings.unitDecimals, onSelectTab = selectTab, onOpenSettings = { vm.open(Sheet.Settings) })
                             } else {
                                 val rows by vm.rows.collectAsState()

@@ -18,8 +18,8 @@ android {
         applicationId = "app.robfx"
         minSdk = 26
         targetSdk = 37
-        versionCode = 16
-        versionName = "1.6.0"
+        versionCode = 17
+        versionName = "1.7.0"
     }
 
     signingConfigs {
@@ -48,6 +48,8 @@ android {
     }
     kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
     buildFeatures { compose = true }
+    // The changelog lives at the repo root (it also feeds the release notes) and ships inside the app as an asset.
+    sourceSets.getByName("main").assets.srcDir(rootProject.file("changelog"))
     testOptions { unitTests { isReturnDefaultValues = true; isIncludeAndroidResources = true } }
 }
 

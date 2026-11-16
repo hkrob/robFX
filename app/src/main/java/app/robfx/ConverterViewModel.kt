@@ -38,8 +38,8 @@ enum class Sheet { None, FromPicker, ToPicker, Alerts, Settings, AddFrom, AddTo 
 
 enum class Screen { Home, Converter }
 
-/** The two halves of the home screen. */
-enum class HomeTab { Markets, UnitPrice }
+/** The sections of the home screen. */
+enum class HomeTab(val title: String) { Markets("Markets"), UnitPrice("Unit price"), About("About") }
 
 /** One line of the watchlist. [points] is the past week, used for the sparkline and the weekly change. */
 data class WatchRow(val pair: WatchPair, val rate: PairRate?, val points: List<HistoryPoint>?) {

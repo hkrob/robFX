@@ -51,6 +51,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.robfx.HomeTab
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -285,19 +287,24 @@ private fun SortBar(sort: WatchSort, descending: Boolean, onTap: (WatchSort) -> 
     }
 }
 
-/** The home screen's two halves as big, light titles: the chosen one is full strength, the other waits quietly. */
+/** The home screen's sections as big, light titles: the chosen one is full strength, the others wait quietly. */
 @Composable
 fun HomeTabs(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
     val pal = Pal.current
-    Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), verticalAlignment = Alignment.Bottom) {
+    // Scrollable, so three titles still work on a narrow phone or at a large font size.
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
         HomeTab.entries.forEach { t ->
             Text(
-                if (t == HomeTab.Markets) "Markets" else "Unit price",
+                t.title,
                 color = if (t == selected) pal.text else pal.subtext.copy(alpha = 0.7f),
-                fontSize = if (t == selected) 36.sp else 28.sp,
+                fontSize = if (t == selected) 34.sp else 24.sp,
                 fontWeight = FontWeight.Light,
                 maxLines = 1,
-                modifier = Modifier.padding(end = 22.dp).clip(RoundedCornerShape(8.dp)).clickable { onSelect(t) },
+                softWrap = false,
+                modifier = Modifier.padding(end = 18.dp).clip(RoundedCornerShape(8.dp)).clickable { onSelect(t) },
             )
         }
     }

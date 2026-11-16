@@ -32,7 +32,7 @@ abstract class AuditBase : FlowBase() {
         rule.onNodeWithContentDescription("Rate alerts").performClick(); settle(); shot("${prefix}_alerts")
         androidx.test.espresso.Espresso.pressBack(); settle()
         if (rule.onAllNodesWithText("Add pair").fetchSemanticsNodes().isEmpty()) {
-            rule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasText("Add pair")); settle()
+            rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToNode(androidx.compose.ui.test.hasText("Add pair")); settle()
         }
         rule.onNodeWithText("Add pair").performClick(); settle(); shot("${prefix}_picker")
         androidx.test.espresso.Espresso.pressBack(); settle()
