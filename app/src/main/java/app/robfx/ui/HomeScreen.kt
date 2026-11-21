@@ -124,7 +124,7 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
                         item(key = "#update") {
                             Row(
                                 Modifier.padding(horizontal = 24.dp, vertical = 6.dp).clip(RoundedCornerShape(50)).background(pal.key)
-                                    .clickable { actions.sheet(Sheet.Settings) }.padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                                    .clickable { actions.sheet(Sheet.SettingsUpdate) }.padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text("robFX $v is available", color = pal.text, fontSize = 14.sp)

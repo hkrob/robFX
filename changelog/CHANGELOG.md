@@ -3,6 +3,9 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.7.5
+- Tapping the "update available" banner now opens straight to the update: it is the first thing on the screen, titled "Update available", and the Update button pulses so the next step is obvious.
+
 ## 1.7.4
 - Chart high and low labels now sit on the side away from the line, so they never cover it.
 - Slightly shorter keypad keys on phones, giving the chart about 25dp more height.

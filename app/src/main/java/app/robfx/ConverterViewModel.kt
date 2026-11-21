@@ -34,7 +34,7 @@ data class HistoryState(
     val error: Boolean = false,
 )
 
-enum class Sheet { None, FromPicker, ToPicker, Alerts, Settings, AddFrom, AddTo }
+enum class Sheet { None, FromPicker, ToPicker, Alerts, Settings, SettingsUpdate, AddFrom, AddTo }
 
 enum class Screen { Home, Converter }
 

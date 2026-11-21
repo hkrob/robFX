@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,6 +91,7 @@ fun Sheets(vm: ConverterViewModel, requestNotifications: () -> Unit) {
             Sheet.AddTo -> CurrencyPicker(recents, "Watch a pair \u00B7 2 of 2", null) { vm.pickForWatch(it) }
             Sheet.Alerts -> Alerts(vm, requestNotifications)
             Sheet.Settings -> SettingsSheet(vm, onAlerts = { vm.open(Sheet.Alerts) })
+            Sheet.SettingsUpdate -> SettingsSheet(vm, onAlerts = { vm.open(Sheet.Alerts) }, updateFirst = true)
             Sheet.None -> {}
         }
     }
@@ -170,7 +173,7 @@ private fun CurrencyRow(c: Currency, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
+private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit, updateFirst: Boolean = false) {
     val pal = Pal.current
     val s by vm.settings.collectAsState()
     val sources by vm.sources.collectAsState()
@@ -178,8 +181,15 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
     val pair by vm.pair.collectAsState()
 
     Column(Modifier.fillMaxHeight(0.92f).navigationBarsPadding()) {
-        Title("Settings")
+        Title(if (updateFirst) "Update available" else "Settings")
+        // Arriving from the "update available" banner, the update comes first so the next step is the first thing seen.
+        val updates: LazyListScope.() -> Unit = {
+            item { Header("Updates") }
+            item { UpdateRow(vm, highlight = updateFirst) }
+            item { ToggleRow("Update automatically", "Check every few hours and download new versions. Android still asks you to confirm the install.", s.autoUpdate, vm::setAutoUpdate) }
+        }
         LazyColumn(Modifier.weight(1f)) {
+            if (updateFirst) updates()
             item { Header("Theme") }
             item {
                 Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(pal.key).padding(4.dp)) {
@@ -210,9 +220,7 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
             item { Header("Rate alerts") }
             item { NavRow("Manage alerts", "Get notified when a rate crosses a target", onAlerts) }
 
-            item { Header("Updates") }
-            item { UpdateRow(vm) }
-            item { ToggleRow("Update automatically", "Check every few hours and download new versions. Android still asks you to confirm the install.", s.autoUpdate, vm::setAutoUpdate) }
+            if (!updateFirst) updates()
 
             item { Header("Data sources") }
             items(sources, key = { it.name }) { src ->
@@ -261,7 +269,7 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit) {
 }
 
 @Composable
-private fun UpdateRow(vm: ConverterViewModel) {
+private fun UpdateRow(vm: ConverterViewModel, highlight: Boolean = false) {
     val pal = Pal.current
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val state by vm.updateState.collectAsState()
@@ -295,9 +303,18 @@ private fun UpdateRow(vm: ConverterViewModel) {
                 Box(Modifier.fillMaxWidth(it.progress.coerceIn(0f, 1f)).height(4.dp).background(pal.accent))
             }
         }
+        // A short double pulse on the button when the user was sent here to press it.
+        val pulse = remember { androidx.compose.animation.core.Animatable(1f) }
+        androidx.compose.runtime.LaunchedEffect(highlight) {
+            if (highlight) repeat(2) {
+                pulse.animateTo(1.08f, androidx.compose.animation.core.tween(280))
+                pulse.animateTo(1f, androidx.compose.animation.core.tween(280))
+            }
+        }
         val primary = state is UpdateState.Available || state is UpdateState.NeedsPermission || (state as? UpdateState.Failed)?.info != null
         Box(
-            Modifier.padding(top = 12.dp).clip(RoundedCornerShape(50)).background(if (primary) pal.accent else pal.key)
+            Modifier.padding(top = 12.dp).graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
+                .clip(RoundedCornerShape(50)).background(if (primary) pal.accent else pal.key)
                 .clickable(enabled = enabled, onClick = action).padding(horizontal = 20.dp, vertical = 12.dp),
         ) { Text(label, color = if (primary) pal.onAccent else if (enabled) pal.accent else pal.subtext, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
     }
