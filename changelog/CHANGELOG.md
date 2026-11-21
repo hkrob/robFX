@@ -3,6 +3,11 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.7.3
+- Small charts are easier to read: the line is coloured green or red by direction, and the high and low are labelled on the chart itself.
+- With the keypad open, the chart header takes one line instead of two, giving the line more height.
+- Update times now include the date ("21 Nov 2026 10:07"), so a screenshot always shows when it was taken.
+
 ## 1.7.2
 - Tapping a field selects it: the next number you type replaces what was there. The selected value is highlighted.
 - Operators and backspace still carry on from the existing value, so 5 then + 2 works as before.

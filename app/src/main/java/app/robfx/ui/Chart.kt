@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -77,15 +78,24 @@ fun RateChart(
     val first = points.firstOrNull()
     val change = if (shown != null && first != null && first.value != 0.0) shown.value / first.value - 1 else null
 
-    Column(modifier) {
+    BoxWithConstraints(modifier) {
+    // Folded-keypad-open phones leave the chart ~140dp: too short for a two-line header plus a readable line. There the
+    // header becomes one line and the high/low move onto the plot itself, so a small chart still says how big the move is.
+    val condensed = maxHeight < 190.dp
+    val hiLo = if (points.size > 1) points.maxOf { it.value } to points.minOf { it.value } else null
+    Column(Modifier.fillMaxSize()) {
         // On short screens the header (value, change, high/low) gives its space to the line itself.
         if (showHeader) Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text(
+                if (!condensed) Text(
                     text = shown?.let { fmt(it.value) } ?: "—",
                     color = pal.text, fontSize = 22.sp, fontWeight = FontWeight.Light, maxLines = 1,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (condensed) Text(
+                        text = (shown?.let { fmt(it.value) } ?: "—") + "  ",
+                        color = pal.text, fontSize = 15.sp, fontWeight = FontWeight.Light, maxLines = 1,
+                    )
                     if (change != null) {
                         Text(
                             Format.percent(change),
@@ -100,9 +110,8 @@ fun RateChart(
                     )
                 }
             }
-            if (points.size > 1) {
-                val hi = points.maxOf { it.value }
-                val lo = points.minOf { it.value }
+            if (hiLo != null && !condensed) {
+                val (hi, lo) = hiLo
                 Column(horizontalAlignment = Alignment.End) {
                     Text("H  ${fmt(hi)}", color = pal.subtext, fontSize = 12.sp)
                     Text("L  ${fmt(lo)}", color = pal.subtext, fontSize = 12.sp)
@@ -118,7 +127,15 @@ fun RateChart(
             contentAlignment = Alignment.Center,
         ) {
             when {
-                points.size >= 2 -> ChartCanvas(points, scrub, reveal.value, { scrub = it }, onScrub)
+                points.size >= 2 -> {
+                    ChartCanvas(points, scrub, reveal.value, { scrub = it }, onScrub, tight = condensed)
+                    if (condensed && hiLo != null) {
+                        // Labels sit on the min and max hairlines, so the line's height can be read as a percentage.
+                        val tag = Modifier.background(pal.bg.copy(alpha = 0.75f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp)
+                        Text(fmt(hiLo.first), color = pal.subtext, fontSize = 10.sp, modifier = Modifier.align(Alignment.TopStart).padding(start = 14.dp).then(tag))
+                        Text(fmt(hiLo.second), color = pal.subtext, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomStart).padding(start = 14.dp).then(tag))
+                    }
+                }
                 error -> Text("Chart unavailable · Retry", color = pal.subtext, fontSize = 14.sp, modifier = Modifier.clickable(onClick = onRetry).padding(16.dp))
                 loading -> Text("Loading…", color = pal.subtext, fontSize = 14.sp)
             }
@@ -142,6 +159,7 @@ fun RateChart(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -151,13 +169,16 @@ private fun ChartCanvas(
     reveal: Float,
     setScrub: (Int?) -> Unit,
     onScrub: () -> Unit,
+    tight: Boolean,
 ) {
     val pal = Pal.current
     val lo = points.minOf { it.value }
     val hi = points.maxOf { it.value }
     // A flat series (a peg) would divide by zero; give it a sliver of height instead.
     val span = (hi - lo).takeIf { it > 0 } ?: (hi * 0.001).coerceAtLeast(1e-9)
-    val accent = pal.accent
+    // Colour says which way it went, so a squashed line still reads at a glance (flat stays the theme accent).
+    val net = points.last().value - points.first().value
+    val accent = when { net > span * 0.02 -> pal.positive; net < -span * 0.02 -> pal.negative; else -> pal.accent }
     val grid = pal.key
 
     Canvas(
@@ -178,7 +199,7 @@ private fun ChartCanvas(
                 }
             },
     ) {
-        val padV = 10.dp.toPx()
+        val padV = (if (tight) 5.dp else 10.dp).toPx()
         // Inset the series so the end-point marker isn't sliced by the screen edge; grid lines still run edge to edge.
         val padH = 14.dp.toPx()
         val w = size.width - padH * 2
@@ -187,7 +208,7 @@ private fun ChartCanvas(
         fun y(v: Double) = padV + (1 - ((v - lo) / span)).toFloat() * h
 
         // Hairline grid at min / mid / max: structure without chart-junk.
-        for (f in listOf(0f, 0.5f, 1f)) {
+        for (f in if (tight) listOf(0f, 1f) else listOf(0f, 0.5f, 1f)) {
             val gy = padV + f * h
             drawLine(grid, Offset(0f, gy), Offset(size.width, gy), strokeWidth = 1.dp.toPx())
         }

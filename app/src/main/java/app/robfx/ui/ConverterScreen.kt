@@ -71,7 +71,9 @@ import app.robfx.data.PairRate
 import app.robfx.data.Quality
 import app.robfx.ui.theme.Pal
 import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 /** Everything the converter draws, as plain values, so it can be rendered without a ViewModel (previews, screenshot tests). */
 data class ConverterUi(
@@ -373,7 +375,9 @@ private fun RateLine(from: String, to: String, pair: PairRate?, refreshing: Bool
     }
 }
 
-internal fun timeOf(ms: Long): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(ms))
+/** Date and time ("21 Nov 2026 10:07"), so a screenshot always says when it was taken. The date is fixed-format on purpose. */
+internal fun timeOf(ms: Long): String =
+    SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(ms)) + " " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(ms))
 
 internal fun ago(ms: Long): String {
     val m = (System.currentTimeMillis() - ms) / 60_000
