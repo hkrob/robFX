@@ -226,7 +226,7 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
                 ) {
                     Box {
                         // Keys scale down on short screens so the chart never collapses to nothing.
-                        val keyH: Dp = (screenH * (if (compact) 0.074f else 0.082f)).coerceIn(44.dp, 76.dp)
+                        val keyH: Dp = (screenH * (if (compact) 0.074f else 0.076f)).coerceIn(44.dp, 76.dp)
                         Keypad(
                             keyHeight = keyH,
                             haptics = settings.haptics,

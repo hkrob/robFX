@@ -3,6 +3,10 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.7.4
+- Chart high and low labels now sit on the side away from the line, so they never cover it.
+- Slightly shorter keypad keys on phones, giving the chart about 25dp more height.
+
 ## 1.7.3
 - Small charts are easier to read: the line is coloured green or red by direction, and the high and low are labelled on the chart itself.
 - With the keypad open, the chart header takes one line instead of two, giving the line more height.

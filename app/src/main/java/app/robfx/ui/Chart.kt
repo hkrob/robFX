@@ -132,8 +132,11 @@ fun RateChart(
                     if (condensed && hiLo != null) {
                         // Labels sit on the min and max hairlines, so the line's height can be read as a percentage.
                         val tag = Modifier.background(pal.bg.copy(alpha = 0.75f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp)
-                        Text(fmt(hiLo.first), color = pal.subtext, fontSize = 10.sp, modifier = Modifier.align(Alignment.TopStart).padding(start = 14.dp).then(tag))
-                        Text(fmt(hiLo.second), color = pal.subtext, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomStart).padding(start = 14.dp).then(tag))
+                        // Each label goes to the side away from its own extreme, so it never sits on top of the line.
+                        val hiLeft = points.indexOfFirst { it.value == hiLo.first } > points.size / 2
+                        val loLeft = points.indexOfFirst { it.value == hiLo.second } > points.size / 2
+                        Text(fmt(hiLo.first), color = pal.subtext, fontSize = 10.sp, modifier = Modifier.align(if (hiLeft) Alignment.TopStart else Alignment.TopEnd).padding(horizontal = 14.dp).then(tag))
+                        Text(fmt(hiLo.second), color = pal.subtext, fontSize = 10.sp, modifier = Modifier.align(if (loLeft) Alignment.BottomStart else Alignment.BottomEnd).padding(horizontal = 14.dp).then(tag))
                     }
                 }
                 error -> Text("Chart unavailable · Retry", color = pal.subtext, fontSize = 14.sp, modifier = Modifier.clickable(onClick = onRetry).padding(16.dp))
