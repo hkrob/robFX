@@ -50,6 +50,16 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_FROM = "pair_from"
         const val EXTRA_TO = "pair_to"
+        const val EXTRA_UPDATE = "open_update"
+    }
+
+    /** The update notification opens the update itself. A fresh process hasn't checked yet, so check on the way in. */
+    private fun openRequestedUpdate(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_UPDATE, false) != true) return
+        intent.removeExtra(EXTRA_UPDATE)
+        if (vm.updateState.value !is UpdateState.Available) vm.checkForUpdate()
+        vm.goHome()
+        vm.open(Sheet.SettingsUpdate)
     }
 
     /** A widget tap can ask for a specific pair's converter. */
@@ -65,6 +75,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         openRequestedPair(intent)
+        openRequestedUpdate(intent)
     }
 
     private val unitVm: UnitPriceViewModel by viewModels {
@@ -90,6 +101,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         openRequestedPair(intent)
+        openRequestedUpdate(intent)
         setContent {
             val settings by vm.settings.collectAsState()
             val dark = resolveDark(settings.theme)

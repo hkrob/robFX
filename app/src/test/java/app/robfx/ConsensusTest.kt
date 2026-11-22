@@ -69,6 +69,20 @@ class ConsensusTest {
         assertEquals(listOf(1L), hits.map { it.first.id })
         assertTrue(AlertChecker.triggered(listOf(up)) { _, _ -> null }.isEmpty())
     }
+
+    @Test fun aTargetAlreadyPassedIsCaughtBeforeItIsSaved() {
+        assertTrue(AlertChecker.alreadyMet(above = true, target = 5.20, now = 5.23))
+        assertTrue(AlertChecker.alreadyMet(above = false, target = 5.30, now = 5.23))
+        assertTrue(!AlertChecker.alreadyMet(above = true, target = 5.40, now = 5.23))
+        assertTrue(!AlertChecker.alreadyMet(above = false, target = 5.10, now = 5.23))
+    }
+
+    @Test fun alertsSavedBeforeTriggerTimesStillLoad() {
+        val old = """[{"id":1,"from":"AUD","to":"HKD","target":5.4,"above":true,"active":false}]"""
+        val l = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+            .decodeFromString(kotlinx.serialization.builtins.ListSerializer(Alert.serializer()), old)
+        assertEquals(null, l.single().triggeredAt)
+    }
 }
 
 class WatchlistDefaultsTest {

@@ -86,6 +86,11 @@ class RatesRepository(
     }
 
     private suspend fun persist() = withContext(Dispatchers.IO) {
-        runCatching { file.writeText(json.encodeToString(Snapshot.serializer(), _snapshot.value)) }
+        // Write-then-rename: a process killed mid-write leaves the previous snapshot intact instead of a torn file.
+        runCatching {
+            val tmp = File(file.parentFile, "${file.name}.tmp")
+            tmp.writeText(json.encodeToString(Snapshot.serializer(), _snapshot.value))
+            if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
+        }
     }
 }

@@ -151,7 +151,10 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     }
 
     fun refresh() {
-        viewModelScope.launch { c.rates.refresh() }
+        viewModelScope.launch {
+            // Rates fetched while the app is open count for alerts too, not just the half-hourly background check.
+            if (c.rates.refresh()) app.robfx.work.AlertRunner.run(getApplication())
+        }
     }
 
     // True after Clear (back to the default "1") or a tap on the amount: the next number typed replaces the entry.
@@ -261,7 +264,7 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     }
 
     fun setAlertActive(id: Long, active: Boolean) {
-        viewModelScope.launch { c.settings.updateAlerts { l -> l.map { if (it.id == id) it.copy(active = active) else it } } }
+        viewModelScope.launch { c.settings.updateAlerts { l -> l.map { if (it.id == id) it.copy(active = active, triggeredAt = if (active) null else it.triggeredAt, triggeredRate = if (active) null else it.triggeredRate) else it } } }
     }
 
     fun deleteAlert(id: Long) {

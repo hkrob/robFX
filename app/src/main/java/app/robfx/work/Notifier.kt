@@ -42,7 +42,11 @@ object Notifier {
     fun alert(context: Context, alert: Alert, current: Double) {
         if (!canPost(context)) return
         val open = PendingIntent.getActivity(
-            context, alert.id.toInt(), Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            context, alert.id.toInt(),
+            // Straight to that pair's converter, not the home screen.
+            Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_FROM, alert.from).putExtra(MainActivity.EXTRA_TO, alert.to)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val verb = if (alert.above) "rose to" else "fell to"
         val n = NotificationCompat.Builder(context, CHANNEL)
@@ -58,11 +62,14 @@ object Notifier {
     @android.annotation.SuppressLint("MissingPermission")
     fun updateAvailable(context: Context, version: String) {
         if (!canPost(context)) return
-        val open = PendingIntent.getActivity(context, UPDATE_ID, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val open = PendingIntent.getActivity(
+            context, UPDATE_ID,
+            Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_UPDATE, true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n = NotificationCompat.Builder(context, UPDATES)
             .setSmallIcon(R.drawable.ic_stat_alert)
             .setContentTitle("robFX $version is available")
-            .setContentText("Open Settings to install it")
+            .setContentText("Tap to see what's new and install")
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()

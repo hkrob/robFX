@@ -3,6 +3,13 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.8.0
+- Rate alerts: a target the rate has already passed is no longer accepted (it used to fire on the very next check). The direction follows the target you type, and comma decimals work.
+- Alerts are now also checked whenever the app refreshes rates, not only every 30 minutes in the background.
+- A fired alert shows the rate and date it hit; one you switched off by hand says "paused". Re-arming clears it.
+- Tapping an alert notification opens that pair; tapping the update notification opens the update, ready to install.
+- Saved rates are written safely, so a crash mid-save can't lose them.
+
 ## 1.7.5
 - Tapping the "update available" banner now opens straight to the update: it is the first thing on the screen, titled "Update available", and the Update button pulses so the next step is obvious.
 

@@ -38,6 +38,9 @@ data class Alert(
     val target: Double,
     val above: Boolean,
     val active: Boolean = true,
+    /** When it last fired, and at what rate; cleared when re-armed. Null for one paused by hand. */
+    val triggeredAt: Long? = null,
+    val triggeredRate: Double? = null,
 )
 
 data class WatchPair(val from: String, val to: String) {

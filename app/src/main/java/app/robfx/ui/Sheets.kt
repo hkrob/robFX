@@ -379,7 +379,13 @@ private fun Alerts(vm: ConverterViewModel, requestNotifications: () -> Unit) {
 
     var above by remember { mutableStateOf(true) }
     var target by remember(s.from, s.to) { mutableStateOf(pair?.let { Format.rate(it.rate).replace(",", "") } ?: "") }
+    // The field starts at today's rate, a target that would fire at once; it only counts once the user changes it.
+    var edited by remember(s.from, s.to) { mutableStateOf(false) }
     val value = target.toDoubleOrNull()
+    val now = pair?.rate
+    // A target the rate has already passed would fire on the very next check: say so instead of accepting it.
+    val met = value != null && now != null && app.robfx.data.AlertChecker.alreadyMet(above, value, now)
+    val ok = edited && value != null && value > 0 && !met
 
     Column(Modifier.fillMaxHeight(0.92f).navigationBarsPadding()) {
         Title("Rate alerts")
@@ -401,21 +407,42 @@ private fun Alerts(vm: ConverterViewModel, requestNotifications: () -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         BasicTextField(
-                            value = target, onValueChange = { target = it.filter { c -> c.isDigit() || c == '.' } }, singleLine = true,
+                            value = target,
+                            onValueChange = { raw ->
+                                // Decimal keyboards in comma locales only offer ","; keep one separator, whichever was typed.
+                                val t = raw.replace(',', '.').filter { c -> c.isDigit() || c == '.' }
+                                val i = t.indexOf('.')
+                                edited = true
+                                target = if (i < 0) t else t.substring(0, i + 1) + t.substring(i + 1).replace(".", "")
+                                // The direction follows the target: above today's rate means "rises to".
+                                val v = target.toDoubleOrNull()
+                                if (v != null && now != null && v != now) above = v > now
+                            },
+                            singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             textStyle = TextStyle(color = pal.accent, fontSize = 30.sp, fontWeight = FontWeight.Light),
                             cursorBrush = SolidColor(pal.accent),
                             modifier = Modifier.weight(1f),
                         )
                         Box(
-                            Modifier.clip(RoundedCornerShape(50)).background(if (value != null && value > 0) pal.accent else pal.bg)
-                                .clickable(enabled = value != null && value > 0) {
+                            Modifier.clip(RoundedCornerShape(50)).background(if (ok) pal.accent else pal.bg)
+                                .clickable(enabled = ok) {
                                     requestNotifications()
                                     vm.addAlert(above, value!!)
+                                    // Back to untouched, so a second tap can't add the same alert twice.
+                                    edited = false
                                 }.padding(horizontal = 20.dp, vertical = 12.dp),
-                        ) { Text("Add", color = if (value != null && value > 0) pal.onAccent else pal.subtext, fontWeight = FontWeight.Bold) }
+                        ) { Text("Add", color = if (ok) pal.onAccent else pal.subtext, fontWeight = FontWeight.Bold) }
                     }
-                    pair?.let { Text("Now ${Format.rate(it.rate)}", color = pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
+                    pair?.let {
+                        val hint = when {
+                            !met -> "Now ${Format.rate(it.rate)}"
+                            !edited -> "Now ${Format.rate(it.rate)}. Enter the rate you want to hear about."
+                            above -> "Now ${Format.rate(it.rate)}, already at or above that. Pick a higher target."
+                            else -> "Now ${Format.rate(it.rate)}, already at or below that. Pick a lower target."
+                        }
+                        Text(hint, color = if (met && edited) pal.warning else pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    }
                 }
             }
             if (alerts.isEmpty()) {
@@ -435,7 +462,11 @@ private fun AlertRow(a: Alert, onToggle: (Boolean) -> Unit, onDelete: () -> Unit
         Column(Modifier.weight(1f)) {
             Text("${a.from}/${a.to}", color = if (a.active) pal.text else pal.subtext, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Text(
-                (if (a.above) "Rises to " else "Falls to ") + Format.rate(a.target) + if (a.active) "" else " · triggered",
+                (if (a.above) "Rises to " else "Falls to ") + Format.rate(a.target) + when {
+                    a.active -> ""
+                    a.triggeredAt != null -> " · hit ${a.triggeredRate?.let { Format.rate(it) } ?: ""} on ${timeOf(a.triggeredAt)}".replace("  ", " ")
+                    else -> " · paused"
+                },
                 color = pal.subtext, fontSize = 13.sp,
             )
         }
