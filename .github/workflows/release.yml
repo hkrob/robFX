@@ -117,7 +117,13 @@ jobs:
       - name: Test, lint and build the release APK
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+          # Robolectric downloads its Android runtime from Maven on first use, and that fetch occasionally fails on the
+          # runner. One retry after a pause, so a network hiccup doesn't silently skip a release (1.7.5 was lost that way).
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease || {
+            echo "::warning::Build failed, retrying once in 60s"
+            sleep 60
+            ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+          }
 
       - name: Verify the signature
         run: |
