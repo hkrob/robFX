@@ -36,4 +36,20 @@ class HistoryRepository(
         }
         return Result.failure(lastError ?: IllegalStateException("No source has history for $from/$to"))
     }
+
+    /** Every published day in a span, for export. Only daily sources count: a sampled series would put wrong rates on most days. */
+    suspend fun loadSpan(from: String, to: String, start: LocalDate, end: LocalDate): Result<List<HistoryPoint>> {
+        var lastError: Throwable? = null
+        for (s in sources.filter { it.daily }) {
+            try {
+                val pts = s.history(from, to, start, end)
+                if (!pts.isNullOrEmpty()) return Result.success(pts)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+        return Result.failure(lastError ?: IllegalStateException("No daily history for $from/$to"))
+    }
 }

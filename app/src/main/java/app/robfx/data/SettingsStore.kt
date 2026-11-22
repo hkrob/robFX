@@ -41,7 +41,22 @@ data class Alert(
     /** When it last fired, and at what rate; cleared when re-armed. Null for one paused by hand. */
     val triggeredAt: Long? = null,
     val triggeredRate: Double? = null,
-)
+    /** "target" (crosses [target]) or "move" (moves [movePct]% either way from [base]). */
+    val kind: String = TARGET,
+    val movePct: Double? = null,
+    val base: Double? = null,
+    /** Keeps watching after it fires, instead of switching itself off. */
+    val repeat: Boolean = false,
+    /** A repeating target alert that fired and waits for the rate to come back before it can fire again. */
+    val waiting: Boolean = false,
+) {
+    val isMove get() = kind == MOVE
+
+    companion object {
+        const val TARGET = "target"
+        const val MOVE = "move"
+    }
+}
 
 data class WatchPair(val from: String, val to: String) {
     val key get() = "$from/$to"
@@ -81,6 +96,7 @@ class SettingsStore(private val context: Context) {
         val recentTags = stringPreferencesKey("recent_tags")
         val lastUpdateCheck = androidx.datastore.preferences.core.longPreferencesKey("update_checked_at")
         val lastNotified = stringPreferencesKey("update_notified")
+        val multi = stringPreferencesKey("multi")
     }
 
     private val defaults = Currencies.localPair()
@@ -115,6 +131,19 @@ class SettingsStore(private val context: Context) {
     suspend fun updateWatchlist(transform: (List<WatchPair>) -> List<WatchPair>) = context.dataStore.edit { p ->
         val cur = parseWatch(p[K.watch]) ?: defaultWatchlist()
         p[K.watch] = transform(cur).distinct().joinToString(",") { it.key }
+    }
+
+    /** Currencies shown in "In other currencies". Until edited: the Markets currencies plus a few majors. */
+    val multi: Flow<List<String>> = context.dataStore.data.map { p -> parseMulti(p[K.multi]) ?: defaultMulti(parseWatch(p[K.watch]) ?: defaultWatchlist()) }
+
+    private fun parseMulti(raw: String?): List<String>? = raw?.split(',')?.filter { it in Currencies.codes }
+
+    private fun defaultMulti(watch: List<WatchPair>): List<String> =
+        (watch.flatMap { listOf(it.from, it.to) } + listOf("USD", "EUR", "GBP", "JPY", "CNY", "AUD", "HKD")).distinct().take(8)
+
+    suspend fun updateMulti(transform: (List<String>) -> List<String>) = context.dataStore.edit { p ->
+        val cur = parseMulti(p[K.multi]) ?: defaultMulti(parseWatch(p[K.watch]) ?: defaultWatchlist())
+        p[K.multi] = transform(cur).distinct().joinToString(",")
     }
 
     val alerts: Flow<List<Alert>> = context.dataStore.data.map { p ->

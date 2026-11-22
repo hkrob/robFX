@@ -1,5 +1,10 @@
 package app.robfx.ui
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.outlined.MoreVert
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -159,6 +164,8 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
                 onStatus = { actions.open(Sheet.Settings) },
                 onAlerts = { actions.open(Sheet.Alerts) },
                 onSettings = { actions.open(Sheet.Settings) },
+                onMulti = { actions.open(Sheet.Multi) },
+                onExport = { actions.open(Sheet.Export) },
             )
             Display(
                 fromCode = settings.from,
@@ -243,7 +250,7 @@ fun ConverterContent(ui: ConverterUi, actions: ConverterActions) {
 }
 
 @Composable
-private fun TopBar(pair: PairRate?, watched: Boolean, onBack: () -> Unit, onWatch: () -> Unit, onStatus: () -> Unit, onAlerts: () -> Unit, onSettings: () -> Unit) {
+private fun TopBar(pair: PairRate?, watched: Boolean, onBack: () -> Unit, onWatch: () -> Unit, onStatus: () -> Unit, onAlerts: () -> Unit, onSettings: () -> Unit, onMulti: () -> Unit = {}, onExport: () -> Unit = {}) {
     val pal = Pal.current
     Row(
         Modifier
@@ -257,7 +264,16 @@ private fun TopBar(pair: PairRate?, watched: Boolean, onBack: () -> Unit, onWatc
         Spacer(Modifier.weight(1f))
         IconBtn(if (watched) Icons.Filled.Star else Icons.Outlined.StarBorder, if (watched) "Remove from markets" else "Add to markets", onWatch, if (watched) pal.accent else pal.keyText)
         IconBtn(Icons.Outlined.Notifications, "Rate alerts", onAlerts, pal.keyText)
-        IconBtn(Icons.Outlined.Settings, "Settings", onSettings, pal.keyText)
+        // Less-used actions share one menu, so the status pill keeps its width on narrow phones.
+        Box {
+            var menu by remember { mutableStateOf(false) }
+            IconBtn(Icons.Outlined.MoreVert, "More", { menu = true }, pal.keyText)
+            DropdownMenu(menu, onDismissRequest = { menu = false }, containerColor = pal.key) {
+                DropdownMenuItem(text = { Text("In other currencies", color = pal.text) }, onClick = { menu = false; onMulti() })
+                DropdownMenuItem(text = { Text("Export rate history", color = pal.text) }, onClick = { menu = false; onExport() })
+                DropdownMenuItem(text = { Text("Settings", color = pal.text) }, onClick = { menu = false; onSettings() })
+            }
+        }
     }
 }
 

@@ -25,6 +25,9 @@ interface RateSource {
 
     /** Daily series of [from] -> [to], or null when this source can't produce one. */
     suspend fun history(from: String, to: String, start: LocalDate, end: LocalDate): List<HistoryPoint>? = null
+
+    /** True when [history] returns every published day, not a sample. */
+    val daily: Boolean get() = false
 }
 
 internal val json = Json { ignoreUnknownKeys = true }
@@ -40,6 +43,7 @@ private fun JsonObject.numbers(upper: Boolean): Map<String, Double> = buildMap {
 /** ECB reference rates. Daily, authoritative, ~30 currencies, and the only source here with a real time-series endpoint. */
 class FrankfurterSource(private val http: Http, private val clock: () -> Long = System::currentTimeMillis) : RateSource {
     override val name = "Frankfurter"
+    override val daily = true
     private val base = "https://api.frankfurter.dev/v1"
 
     override suspend fun latest(): RateTable {

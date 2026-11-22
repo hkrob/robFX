@@ -34,7 +34,14 @@ data class HistoryState(
     val error: Boolean = false,
 )
 
-enum class Sheet { None, FromPicker, ToPicker, Alerts, Settings, SettingsUpdate, AddFrom, AddTo }
+enum class Sheet { None, FromPicker, ToPicker, Alerts, Settings, SettingsUpdate, AddFrom, AddTo, Multi, MultiAdd, Export }
+
+sealed interface ExportState {
+    data object Idle : ExportState
+    data class Loading(val period: app.robfx.data.ExportPeriod) : ExportState
+    data class Ready(val fileName: String, val csv: String) : ExportState
+    data class Failed(val message: String) : ExportState
+}
 
 enum class Screen { Home, Converter }
 
@@ -254,18 +261,70 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     fun setUnitDecimals(v: Int) = viewModelScope.launch { c.settings.setUnitDecimals(v) }
     fun setHaptics(v: Boolean) = viewModelScope.launch { c.settings.setHaptics(v) }
 
-    fun addAlert(above: Boolean, target: Double) {
+    fun addAlert(above: Boolean, target: Double, repeat: Boolean = false) {
         val s = settings.value
         viewModelScope.launch {
-            c.settings.updateAlerts { it + Alert(System.currentTimeMillis(), s.from, s.to, target, above) }
+            c.settings.updateAlerts { it + Alert(System.currentTimeMillis(), s.from, s.to, target, above, repeat = repeat) }
         }
         // First alert is the moment the periodic worker starts to matter; make sure it has fresh numbers to compare.
         refreshIfStale()
     }
 
-    fun setAlertActive(id: Long, active: Boolean) {
-        viewModelScope.launch { c.settings.updateAlerts { l -> l.map { if (it.id == id) it.copy(active = active, triggeredAt = if (active) null else it.triggeredAt, triggeredRate = if (active) null else it.triggeredRate) else it } } }
+    /** "Tell me when it moves [pct]% either way" from today's rate. */
+    fun addMoveAlert(pct: Double, repeat: Boolean) {
+        val s = settings.value
+        val now = pair.value?.rate ?: return
+        viewModelScope.launch {
+            c.settings.updateAlerts { it + Alert(System.currentTimeMillis(), s.from, s.to, now, above = true, kind = Alert.MOVE, movePct = pct, base = now, repeat = repeat) }
+        }
+        refreshIfStale()
     }
+
+    fun setAlertActive(id: Long, active: Boolean) {
+        viewModelScope.launch {
+            c.settings.updateAlerts { l ->
+                l.map { a ->
+                    when {
+                        a.id != id -> a
+                        // Re-armed: forget the last hit, and a move alert measures from today's rate again.
+                        active -> a.copy(active = true, triggeredAt = null, triggeredRate = null, waiting = false, base = if (a.isMove) c.rates.pair(a.from, a.to)?.rate ?: a.base else a.base)
+                        else -> a.copy(active = false, triggeredAt = null, triggeredRate = null)
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- In other currencies ----
+    val multi: StateFlow<List<String>> = c.settings.multi.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val snapshot = c.rates.snapshot
+    fun rate(from: String, to: String): Double? = c.rates.pair(from, to)?.rate
+    fun addMulti(code: String) { viewModelScope.launch { c.settings.updateMulti { it + code } }; _sheet.value = Sheet.Multi }
+    fun removeMulti(code: String) { viewModelScope.launch { c.settings.updateMulti { it - code } } }
+    /** Tapping a currency in the list makes it the converter's target. */
+    fun pickMulti(code: String) = pick(code, isFrom = false)
+
+    // ---- Rate history export ----
+    private val _export = MutableStateFlow<ExportState>(ExportState.Idle)
+    val export: StateFlow<ExportState> = _export
+
+    fun prepareExport(period: app.robfx.data.ExportPeriod) {
+        val s = settings.value
+        _export.value = ExportState.Loading(period)
+        viewModelScope.launch {
+            c.history.loadSpan(s.from, s.to, period.start, period.end).fold(
+                { pts ->
+                    _export.value = ExportState.Ready(
+                        app.robfx.data.RateCsv.fileName(s.from, s.to, period),
+                        app.robfx.data.RateCsv.build(s.from, s.to, period, pts),
+                    )
+                },
+                { _export.value = ExportState.Failed("No daily rates for ${s.from}/${s.to} in that period") },
+            )
+        }
+    }
+
+    fun exportDone() { _export.value = ExportState.Idle }
 
     fun deleteAlert(id: Long) {
         viewModelScope.launch { c.settings.updateAlerts { l -> l.filterNot { it.id == id } } }

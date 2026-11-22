@@ -48,11 +48,17 @@ object Notifier {
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val verb = if (alert.above) "rose to" else "fell to"
+        val text = if (alert.isMove) {
+            val base = alert.base ?: current
+            val pct = (current / base - 1) * 100
+            "${if (pct >= 0) "Up" else "Down"} ${"%.1f".format(kotlin.math.abs(pct))}% from ${Format.rate(base)}"
+        } else {
+            "${if (alert.above) "Rose to" else "Fell to"} your target of ${Format.rate(alert.target)}"
+        }
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_alert)
             .setContentTitle("${alert.from}/${alert.to} ${Format.rate(current)}")
-            .setContentText("$verb your target of ${Format.rate(alert.target)}")
+            .setContentText(text)
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyListScope
@@ -92,6 +93,9 @@ fun Sheets(vm: ConverterViewModel, requestNotifications: () -> Unit) {
             Sheet.Alerts -> Alerts(vm, requestNotifications)
             Sheet.Settings -> SettingsSheet(vm, onAlerts = { vm.open(Sheet.Alerts) })
             Sheet.SettingsUpdate -> SettingsSheet(vm, onAlerts = { vm.open(Sheet.Alerts) }, updateFirst = true)
+            Sheet.Multi -> MultiSheet(vm)
+            Sheet.MultiAdd -> CurrencyPicker(recents, "Add to the list", null) { vm.addMulti(it) }
+            Sheet.Export -> ExportSheet(vm)
             Sheet.None -> {}
         }
     }
@@ -385,7 +389,11 @@ private fun Alerts(vm: ConverterViewModel, requestNotifications: () -> Unit) {
     val now = pair?.rate
     // A target the rate has already passed would fire on the very next check: say so instead of accepting it.
     val met = value != null && now != null && app.robfx.data.AlertChecker.alreadyMet(above, value, now)
-    val ok = edited && value != null && value > 0 && !met
+    var move by remember { mutableStateOf(false) }
+    var pctText by remember { mutableStateOf("2") }
+    var repeat by remember { mutableStateOf(false) }
+    val pct = pctText.toDoubleOrNull()?.takeIf { it > 0 && it <= 50 }
+    val ok = if (move) pct != null && now != null else edited && value != null && value > 0 && !met
 
     Column(Modifier.fillMaxHeight(0.92f).navigationBarsPadding()) {
         Title("Rate alerts")
@@ -395,18 +403,30 @@ private fun Alerts(vm: ConverterViewModel, requestNotifications: () -> Unit) {
                     Text("New alert for ${s.from}/${s.to}", color = pal.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(pal.bg).padding(4.dp)) {
-                        listOf(true to "Rises to", false to "Falls to").forEach { (isAbove, label) ->
-                            val sel = isAbove == above
+                        listOf(0 to "Rises to", 1 to "Falls to", 2 to "Moves \u00B1").forEach { (mode, label) ->
+                            val sel = if (move) mode == 2 else mode == (if (above) 0 else 1)
                             Box(
                                 Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(if (sel) pal.accent else Color.Transparent)
-                                    .clickable { above = isAbove }.padding(vertical = 9.dp),
+                                    .clickable { move = mode == 2; if (mode != 2) above = mode == 0 }.padding(vertical = 9.dp),
                                 contentAlignment = Alignment.Center,
                             ) { Text(label, color = if (sel) pal.onAccent else pal.keyText, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
                         }
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        BasicTextField(
+                        if (move) Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                            BasicTextField(
+                                value = pctText,
+                                onValueChange = { raw -> pctText = raw.replace(',', '.').filter { c -> c.isDigit() || c == '.' }.take(5) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                textStyle = TextStyle(color = pal.accent, fontSize = 30.sp, fontWeight = FontWeight.Light),
+                                cursorBrush = SolidColor(pal.accent),
+                                // Only as wide as the number, so the % sits right after it.
+                                modifier = Modifier.width(androidx.compose.foundation.layout.IntrinsicSize.Min).widthIn(min = 20.dp),
+                            )
+                            Text(" %", color = pal.accent, fontSize = 30.sp, fontWeight = FontWeight.Light)
+                        } else BasicTextField(
                             value = target,
                             onValueChange = { raw ->
                                 // Decimal keyboards in comma locales only offer ","; keep one separator, whichever was typed.
@@ -428,7 +448,7 @@ private fun Alerts(vm: ConverterViewModel, requestNotifications: () -> Unit) {
                             Modifier.clip(RoundedCornerShape(50)).background(if (ok) pal.accent else pal.bg)
                                 .clickable(enabled = ok) {
                                     requestNotifications()
-                                    vm.addAlert(above, value!!)
+                                    if (move) vm.addMoveAlert(pct!!, repeat) else vm.addAlert(above, value!!, repeat)
                                     // Back to untouched, so a second tap can't add the same alert twice.
                                     edited = false
                                 }.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -436,12 +456,26 @@ private fun Alerts(vm: ConverterViewModel, requestNotifications: () -> Unit) {
                     }
                     pair?.let {
                         val hint = when {
+                            move -> pct?.let { p -> "When it moves ${Format.rate(p)}% either way from today's ${Format.rate(it.rate)}" } ?: "Enter a move between 0 and 50%"
                             !met -> "Now ${Format.rate(it.rate)}"
                             !edited -> "Now ${Format.rate(it.rate)}. Enter the rate you want to hear about."
                             above -> "Now ${Format.rate(it.rate)}, already at or above that. Pick a higher target."
                             else -> "Now ${Format.rate(it.rate)}, already at or below that. Pick a lower target."
                         }
-                        Text(hint, color = if (met && edited) pal.warning else pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                        Text(hint, color = if (!move && met && edited) pal.warning else pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    }
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp).clickable { repeat = !repeat }, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Keep watching", color = pal.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (move) "After it fires, watch for the next move from there" else "After it fires, alert again once the rate has come back and crosses again",
+                                color = pal.subtext, fontSize = 12.sp,
+                            )
+                        }
+                        Switch(
+                            checked = repeat, onCheckedChange = { repeat = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = pal.accent, checkedThumbColor = pal.onAccent, uncheckedTrackColor = pal.bg, uncheckedBorderColor = pal.subtext, uncheckedThumbColor = pal.subtext),
+                        )
                     }
                 }
             }
@@ -462,7 +496,10 @@ private fun AlertRow(a: Alert, onToggle: (Boolean) -> Unit, onDelete: () -> Unit
         Column(Modifier.weight(1f)) {
             Text("${a.from}/${a.to}", color = if (a.active) pal.text else pal.subtext, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Text(
-                (if (a.above) "Rises to " else "Falls to ") + Format.rate(a.target) + when {
+                (if (a.isMove) "Moves \u00B1${Format.rate(a.movePct ?: 0.0)}% from ${Format.rate(a.base ?: a.target)}" else (if (a.above) "Rises to " else "Falls to ") + Format.rate(a.target)) +
+                    (if (a.repeat) " \u00B7 repeats" else "") + when {
+                    a.active && a.waiting -> " \u00B7 hit ${a.triggeredRate?.let { Format.rate(it) } ?: ""}, waiting for it to come back".replace("  ", " ")
+                    a.active && a.triggeredAt != null -> " \u00B7 last hit ${timeOf(a.triggeredAt)}"
                     a.active -> ""
                     a.triggeredAt != null -> " · hit ${a.triggeredRate?.let { Format.rate(it) } ?: ""} on ${timeOf(a.triggeredAt)}".replace("  ", " ")
                     else -> " · paused"

@@ -76,7 +76,22 @@ data class HomeUi(
     val sort: WatchSort = WatchSort.Custom,
     val sortDescending: Boolean = false,
     val rateDecimals: Int = Format.AUTO,
+    /** Set when every rate source failed its last attempt (or the newest rates are over 12 hours old). */
+    val offline: String? = null,
 )
+
+/** The banner line for [HomeUi.offline], or null while rates are fresh. */
+fun offlineText(sources: List<app.robfx.data.SourceStatus>, now: Long = System.currentTimeMillis()): String? {
+    val newest = sources.mapNotNull { it.updatedAt }.maxOrNull()
+    val allFailed = sources.isNotEmpty() && sources.all { !it.ok && it.error != null }
+    val old = newest != null && now - newest > 12 * 3_600_000L
+    return when {
+        !allFailed && !old -> null
+        newest == null -> "Can't reach any rate source"
+        allFailed -> "Offline \u00B7 showing rates from ${ago(newest)}"
+        else -> "Rates are from ${ago(newest)}"
+    }
+}
 
 interface HomeActions {
     fun open(w: WatchPair)
@@ -119,6 +134,21 @@ fun HomeContent(ui: HomeUi, actions: HomeActions) {
                             color = pal.subtext, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(horizontal = 24.dp),
                         )
+                    }
+                    ui.offline?.let { msg ->
+                        item(key = "#offline") {
+                            Row(
+                                Modifier.padding(horizontal = 24.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                                    .background(pal.key).clickable(enabled = !ui.refreshing, onClick = actions::refresh)
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(pal.negative))
+                                Spacer(Modifier.width(10.dp))
+                                Text(msg, color = pal.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                Text(if (ui.refreshing) "Trying\u2026" else "Retry", color = pal.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        }
                     }
                     ui.updateVersion?.let { v ->
                         item(key = "#update") {

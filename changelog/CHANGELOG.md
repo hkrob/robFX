@@ -3,6 +3,14 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.9.0
+- In other currencies: from the converter's ⋮ menu, see your amount in a list of currencies at once. Add or remove currencies; tap one to convert into it.
+- Export rate history: daily ECB rates for the pair as a CSV file, for the past month, quarter or year, calendar years, and Australian (Jul–Jun) and Hong Kong (Apr–Mar) financial years. Weekends and holidays use the last published rate and say which day it came from.
+- Move alerts: get notified when a pair moves a set percentage either way.
+- Keep watching: an alert can stay on after it fires. A target alert fires again once the rate has come back and crosses again; a move alert watches for the next move from where it ended.
+- Markets shows a banner when no rate source can be reached, with how old the rates are and a Retry.
+- The converter's settings button now lives in the ⋮ menu, which keeps the top bar uncluttered.
+
 ## 1.8.0
 - Rate alerts: a target the rate has already passed is no longer accepted (it used to fire on the very next check). The direction follows the target you type, and comma decimals work.
 - Alerts are now also checked whenever the app refreshes rates, not only every 30 minutes in the background.

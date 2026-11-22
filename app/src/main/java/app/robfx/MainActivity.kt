@@ -177,11 +177,12 @@ class MainActivity : ComponentActivity() {
                                 val refreshing by vm.refreshing.collectAsState()
                                 val status = rows.firstNotNullOfOrNull { it.rate }
                                 val update by vm.updateState.collectAsState()
+                                val sources by vm.sources.collectAsState()
                                 val pending = (update as? UpdateState.Available)?.info?.version ?: (update as? UpdateState.NeedsPermission)?.info?.version
                                 Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
                                     Box(Modifier.widthIn(max = 640.dp).fillMaxHeight()) {
                                         HomeContent(
-                                            HomeUi(rows, status, editing, refreshing, pending, settings.sort, settings.sortDescending, settings.rateDecimals),
+                                            HomeUi(rows, status, editing, refreshing, pending, settings.sort, settings.sortDescending, settings.rateDecimals, app.robfx.ui.offlineText(sources)),
                                             object : HomeActions {
                                                 override fun open(w: WatchPair) = vm.openPair(w)
                                                 override fun remove(w: WatchPair) = vm.removeWatch(w)
