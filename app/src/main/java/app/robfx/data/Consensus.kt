@@ -17,6 +17,23 @@ object Consensus {
      */
     const val LAG_MS = 18L * 60 * 60 * 1000
 
+    /** Freshest data older than this, on a trading day, is flagged as delayed rather than passed off as current. */
+    const val DELAYED_MS = 6L * 60 * 60 * 1000
+
+    /**
+     * Forex trades from Sunday ~21:00 UTC (Sydney's open) to Friday ~22:00 UTC (New York's close). Outside that window
+     * Friday's close *is* the latest rate, so old data is expected and not worth a warning.
+     */
+    fun marketOpen(now: Long): Boolean {
+        val t = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneOffset.UTC)
+        return when (t.dayOfWeek) {
+            java.time.DayOfWeek.SATURDAY -> false
+            java.time.DayOfWeek.SUNDAY -> t.hour >= 21
+            java.time.DayOfWeek.FRIDAY -> t.hour < 22
+            else -> true
+        }
+    }
+
     fun pair(tables: Collection<RateTable>, from: String, to: String, now: Long): PairRate? {
         if (tables.isEmpty()) return null
         val fresh = tables.filter { now - it.fetchedAt <= FRESH_MS }
@@ -37,6 +54,7 @@ object Consensus {
         val spread = if (v.size > 1) (v.last() - v.first()) / median else 0.0
         val quality = when {
             fresh.isEmpty() -> Quality.Stale
+            marketOpen(now) && now - newest > DELAYED_MS -> Quality.Delayed
             v.size == 1 -> Quality.Single
             spread > DIVERGENCE -> Quality.Divergent
             else -> Quality.Consensus

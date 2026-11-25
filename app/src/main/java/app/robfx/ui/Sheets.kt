@@ -238,7 +238,10 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit, updateFi
                             buildString {
                                 append(if (src.ok) "OK" else "Failed")
                                 src.latencyMs?.let { append(" · ${it} ms") }
-                                src.updatedAt?.let { append(" · ${ago(it)}") }
+                                // The age of the numbers, not of the download: a daily feed fetched a minute ago can hold yesterday's rates.
+                                (src.dataAt ?: src.updatedAt)?.let { append(" · data ${ago(it)}") }
+                                val newest = pair?.updatedAt
+                                if (perSource == null && newest != null && src.dataAt != null && newest - src.dataAt > app.robfx.data.Consensus.LAG_MS) append(" · behind, not used")
                             },
                             color = pal.subtext, fontSize = 13.sp,
                         )
@@ -248,7 +251,8 @@ private fun SettingsSheet(vm: ConverterViewModel, onAlerts: () -> Unit, updateFi
             }
             item {
                 Text(
-                    "Rates are the median of every source that answered. If they disagree by more than 0.5% the status pill turns amber.",
+                    "Rates are the median of every source with current data. A source more than 18 hours behind the freshest is left out. " +
+                        "The status pill turns amber if the rest disagree by more than 0.5%, or if even the newest rates are over 6 hours old while markets are open.",
                     color = pal.subtext, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
                 )
                 Box(

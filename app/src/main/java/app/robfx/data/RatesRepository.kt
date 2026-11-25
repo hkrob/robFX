@@ -29,7 +29,7 @@ class RatesRepository(
 
     private val _status = MutableStateFlow(sources.map { s ->
         val t = _snapshot.value.tables[s.name]
-        SourceStatus(s.name, ok = t != null, updatedAt = t?.fetchedAt)
+        SourceStatus(s.name, ok = t != null, updatedAt = t?.fetchedAt, dataAt = t?.dataTime)
     })
     val status: StateFlow<List<SourceStatus>> = _status.asStateFlow()
 
@@ -75,8 +75,8 @@ class RatesRepository(
             _status.value = results.map { (n, r) ->
                 val prev = _snapshot.value.tables[n]
                 r.fold(
-                    { SourceStatus(n, true, it.second, it.first.fetchedAt) },
-                    { SourceStatus(n, false, null, prev?.fetchedAt, it.message ?: it.javaClass.simpleName) },
+                    { SourceStatus(n, true, it.second, it.first.fetchedAt, dataAt = it.first.dataTime) },
+                    { SourceStatus(n, false, null, prev?.fetchedAt, it.message ?: it.javaClass.simpleName, prev?.dataTime) },
                 )
             }
             ok.isNotEmpty()

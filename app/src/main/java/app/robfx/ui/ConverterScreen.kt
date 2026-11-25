@@ -292,6 +292,7 @@ internal fun StatusPill(pair: PairRate?, onClick: () -> Unit) {
         Quality.Consensus -> pal.positive to "${pair.perSource.size} sources agree"
         Quality.Single -> pal.warning to "1 source"
         Quality.Divergent -> pal.warning to "Sources differ ${"%.1f".format(pair.spread * 100)}%"
+        Quality.Delayed -> pal.warning to "Delayed · ${ago(pair.updatedAt).removeSuffix(" ago")} old"
         Quality.Stale -> pal.negative to "Offline · ${ago(pair.updatedAt)}"
     }
     Row(

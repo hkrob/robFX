@@ -22,7 +22,8 @@ data class RateTable(
 @Serializable
 data class Snapshot(val tables: Map<String, RateTable> = emptyMap())
 
-enum class Quality { Consensus, Single, Divergent, Stale }
+/** Stale: nothing fetched for 12h. Delayed: fetched, but even the freshest numbers are hours old while markets trade. */
+enum class Quality { Consensus, Single, Divergent, Delayed, Stale }
 
 data class PairRate(
     val rate: Double,
@@ -38,6 +39,8 @@ data class SourceStatus(
     val latencyMs: Long? = null,
     val updatedAt: Long? = null,
     val error: String? = null,
+    /** When this source's numbers were set; can be most of a day before [updatedAt] for a daily feed. */
+    val dataAt: Long? = null,
 )
 
 data class HistoryPoint(val date: LocalDate, val value: Double)

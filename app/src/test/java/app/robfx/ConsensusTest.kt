@@ -75,6 +75,21 @@ class ConsensusTest {
         assertEquals(Quality.Divergent, p.quality)
     }
 
+    @Test fun oldDataOnATradingDayIsFlaggedAsDelayed() {
+        // Wednesday 25 Nov 2026 11:00 UTC; every source is 8h behind.
+        val wed = java.time.Instant.parse("2026-11-25T11:00:00Z").toEpochMilli()
+        val tabs = listOf("a", "b").map { RateTable(it, wed, null, mapOf("USD" to 1.0, "HKD" to 7.8), dataAt = wed - 8 * 3_600_000L) }
+        assertEquals(Quality.Delayed, Consensus.pair(tabs, "USD", "HKD", wed)!!.quality)
+    }
+
+    @Test fun fridaysCloseIsNotDelayedAtTheWeekend() {
+        val sat = java.time.Instant.parse("2026-11-28T11:00:00Z").toEpochMilli()
+        val tabs = listOf("a", "b").map { RateTable(it, sat, null, mapOf("USD" to 1.0, "HKD" to 7.8), dataAt = sat - 13 * 3_600_000L) }
+        assertEquals(Quality.Consensus, Consensus.pair(tabs, "USD", "HKD", sat)!!.quality)
+        assertTrue(!Consensus.marketOpen(sat))
+        assertTrue(Consensus.marketOpen(java.time.Instant.parse("2026-11-29T21:30:00Z").toEpochMilli()))
+    }
+
     @Test fun tablesWithoutADataTimeCountAsFetched() {
         val p = Consensus.pair(listOf(t("a", 7.80), t("b", 7.81), t("c", 7.82)), "USD", "HKD", now)!!
         assertEquals(3, p.perSource.size)

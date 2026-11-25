@@ -146,6 +146,32 @@ class ErApiSource(private val http: Http, private val clock: () -> Long = System
 }
 
 /**
+ * FloatRates: ~150 currencies, refreshed through the day (its file carries the time of the update), no key. Independent
+ * of Coinbase, so a stale or broken intraday feed is outvoted rather than trusted.
+ */
+class FloatRatesSource(private val http: Http, private val clock: () -> Long = System::currentTimeMillis) : RateSource {
+    override val name = "FloatRates"
+
+    override suspend fun latest(): RateTable {
+        val o = json.parseToJsonElement(http.get("https://www.floatrates.com/daily/usd.json")).jsonObject
+        var at: Long? = null
+        val rates = buildMap {
+            for ((_, v) in o) {
+                val e = (v as? JsonObject) ?: continue
+                val code = e["code"]?.jsonPrimitive?.content?.uppercase() ?: continue
+                val d = e["rate"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: continue
+                if (code in Currencies.codes && d > 0) put(code, d)
+                if (at == null) at = e["date"]?.jsonPrimitive?.content?.let {
+                    runCatching { java.time.ZonedDateTime.parse(it, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli() }.getOrNull()
+                }
+            }
+        } + ("USD" to 1.0)
+        require(rates.size > 20) { "FloatRates returned ${rates.size} currencies" }
+        return RateTable(name, clock(), null, rates, at?.let { minOf(it, clock()) })
+    }
+}
+
+/**
  * Coinbase's public exchange-rate endpoint: no key, ~170 fiat currencies, refreshed through the day. The only source
  * here that follows the market intraday, so it is what keeps the daily feeds honest when a currency moves.
  */

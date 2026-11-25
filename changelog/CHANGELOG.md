@@ -3,6 +3,11 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.9.2
+- Added FloatRates as a fifth source, so two sources follow the market through the day.
+- New amber "Delayed" status when even the newest rates are over 6 hours old while markets are open (not at weekends, when Friday's close is the latest rate).
+- Settings → Data sources shows how old each source's numbers are, and marks a source left out for being behind.
+
 ## 1.9.1
 - Fixed: rates could be a day behind. Two of the three sources were still serving the previous day's rates while AUD/HKD had moved 1%, and the app showed their median (5.20 instead of 5.15) while saying the sources agreed.
 - Added Coinbase as a fourth source. It follows the market through the day, unlike the once-a-day feeds.

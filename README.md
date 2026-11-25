@@ -21,7 +21,7 @@ Clean, sharp currency converter for Android (Compose, Material 3, compile and ta
 
 <sub>Screenshots are headless renders from the test suite (sample data, not live rates); regenerate with the command under Build.</sub>
 
-- Rates: median of Frankfurter (ECB), fawazahmed0 currency-api, open.er-api.com and Coinbase (intraday), queried in parallel. Sources whose data is 18h+ behind the freshest are left out; the status pill warns when the rest differ >0.5%.
+- Rates: median of Frankfurter (ECB), fawazahmed0 currency-api, open.er-api.com, Coinbase and FloatRates (the last two intraday), queried in parallel. Sources whose data is 18h+ behind the freshest are left out; the status pill warns when the rest differ >0.5%.
 - Charts: Frankfurter time series, currency-api dated snapshots as fallback. Scrub by dragging.
 - Unit price: compare shop items by price per 100 g / kg / lb / L / fl oz / m / each (weight, volume, length, count), with multipack quantities, prices in any currency converted to your home currency, recent comparisons, optional names for each item ("Coles", "Woolworths") so you can compare the same product across shops, and optional tags ("Pasta", "Milk") that are kept in history and filterable.
 - Calculator keypad with + - × ÷, widget, background rate alerts (~30 min), Auto/Light/Dark/AMOLED + Material You.
@@ -70,3 +70,7 @@ robFX updates itself from this repo's GitHub releases.
   2. It can also be run by hand: Actions -> Release -> Run workflow, or push a tag matching the version (e.g. `v1.7.0`).
 
   The job refuses to publish if the APK isn't signed with the key whose SHA-256 is pinned in the workflow, since phones that already have robFX would reject it.
+
+## Rate freshness
+
+Three of the five sources publish once a day, so the app records when each source's numbers were set, not just when they were downloaded. A source more than 18 hours behind the freshest is left out of the median; if even the freshest data is over 6 hours old while forex markets are open, the status pill reads "Delayed". The [Rate canary](.github/workflows/rates-canary.yml) workflow runs `tools/rates_canary.py` every 6 hours and fails (GitHub emails the owner) if a source breaks, goes stale or drifts more than 1% from the other live source.
