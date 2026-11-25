@@ -5,7 +5,19 @@ import java.time.LocalDate
 
 /** One source's view of the world: units of each currency per 1 USD. */
 @Serializable
-data class RateTable(val source: String, val fetchedAt: Long, val asOf: String? = null, val rates: Map<String, Double>)
+data class RateTable(
+    val source: String,
+    val fetchedAt: Long,
+    val asOf: String? = null,
+    val rates: Map<String, Double>,
+    /**
+     * When the numbers themselves were set, which for a daily source can be most of a day before [fetchedAt]: the ECB
+     * publishes once each afternoon, and a CDN can serve yesterday's file. Null means "as fresh as the fetch".
+     */
+    val dataAt: Long? = null,
+) {
+    val dataTime: Long get() = dataAt ?: fetchedAt
+}
 
 @Serializable
 data class Snapshot(val tables: Map<String, RateTable> = emptyMap())

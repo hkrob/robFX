@@ -61,6 +61,25 @@ class ConsensusTest {
         assertEquals(setOf("new"), p.perSource.keys)
     }
 
+    @Test fun aDayOldSourceIsLeftOutWhenFresherOnesHaveMoved() {
+        // 25 Nov 2026, 11:05 UTC, AUD/HKD per source (units per 1 USD with USD/AUD 1.5): two daily feeds still on 24 Nov.
+        val h = 3_600_000L
+        fun tab(name: String, audHkd: Double, dataAgo: Long) =
+            RateTable(name, now, null, mapOf("USD" to 1.0, "AUD" to 1.5, "HKD" to 1.5 * audHkd), dataAt = now - dataAgo)
+        val p = Consensus.pair(
+            listOf(tab("ecb", 5.2081, 20 * h), tab("er", 5.2027, 11 * h), tab("fawaz", 5.1506, 11 * h), tab("coinbase", 5.1497, 0)),
+            "AUD", "HKD", now,
+        )!!
+        assertEquals(setOf("er", "fawaz", "coinbase"), p.perSource.keys)
+        assertEquals(5.1506, p.rate, 1e-4)
+        assertEquals(Quality.Divergent, p.quality)
+    }
+
+    @Test fun tablesWithoutADataTimeCountAsFetched() {
+        val p = Consensus.pair(listOf(t("a", 7.80), t("b", 7.81), t("c", 7.82)), "USD", "HKD", now)!!
+        assertEquals(3, p.perSource.size)
+    }
+
     @Test fun alertsTripOnTheRightSide() {
         val up = Alert(1, "USD", "HKD", 7.85, above = true)
         val down = Alert(2, "USD", "HKD", 7.80, above = false)

@@ -3,6 +3,13 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.9.1
+- Fixed: rates could be a day behind. Two of the three sources were still serving the previous day's rates while AUD/HKD had moved 1%, and the app showed their median (5.20 instead of 5.15) while saying the sources agreed.
+- Added Coinbase as a fourth source. It follows the market through the day, unlike the once-a-day feeds.
+- A source whose data is more than 18 hours behind the freshest one is now left out of the rate, and the update time shows when the numbers were set, not just when they were downloaded.
+- Currency-API is read from its own always-fresh mirror first, not a CDN copy that could be a day old.
+- The chart now ends at the live rate, so its last point and change match the rate above it.
+
 ## 1.9.0
 - In other currencies: from the converter's ⋮ menu, see your amount in a list of currencies at once. Add or remove currencies; tap one to convert into it.
 - Export rate history: daily ECB rates for the pair as a CSV file, for the past month, quarter or year, calendar years, and Australian (Jul–Jun) and Hong Kong (Apr–Mar) financial years. Weekends and holidays use the last published rate and say which day it came from.

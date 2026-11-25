@@ -18,8 +18,8 @@ android {
         applicationId = "app.robfx"
         minSdk = 26
         targetSdk = 37
-        versionCode = 24
-        versionName = "1.9.0"
+        versionCode = 25
+        versionName = "1.9.1"
     }
 
     signingConfigs {

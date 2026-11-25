@@ -16,9 +16,10 @@ class AppContainer(context: Context) {
     private val frankfurter = FrankfurterSource(http)
     private val fawaz = FawazSource(http)
     private val erApi = ErApiSource(http)
+    private val coinbase = app.robfx.data.source.CoinbaseSource(http)
 
     val settings = SettingsStore(context)
-    val rates = RatesRepository(context, listOf(frankfurter, fawaz, erApi))
+    val rates = RatesRepository(context, listOf(frankfurter, fawaz, erApi, coinbase))
     // Only Frankfurter and Currency-API can do history; the ECB goes first because it's one request instead of ~28.
     val history = HistoryRepository(listOf(frankfurter, fawaz))
     val updater = Updater(context.applicationContext, settings)

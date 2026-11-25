@@ -10,10 +10,19 @@ object Consensus {
     const val DIVERGENCE = 0.005
     const val FRESH_MS = 12L * 60 * 60 * 1000
 
+    /**
+     * A source whose data is this much older than the freshest source's is left out. Daily feeds are all "fresh" when
+     * fetched, but on 25 Nov 2026 two of three were still on the previous day while AUD/HKD had moved 1%: their median
+     * outvoted the one current source and the pill still said the sources agreed.
+     */
+    const val LAG_MS = 18L * 60 * 60 * 1000
+
     fun pair(tables: Collection<RateTable>, from: String, to: String, now: Long): PairRate? {
         if (tables.isEmpty()) return null
         val fresh = tables.filter { now - it.fetchedAt <= FRESH_MS }
-        val use = fresh.ifEmpty { tables }
+        val pool = fresh.ifEmpty { tables }.filter { it.rates[from] != null && it.rates[to] != null }
+        val newest = pool.maxOfOrNull { it.dataTime } ?: return null
+        val use = pool.filter { newest - it.dataTime <= LAG_MS }
 
         val per = LinkedHashMap<String, Double>()
         for (t in use) {
@@ -32,6 +41,7 @@ object Consensus {
             spread > DIVERGENCE -> Quality.Divergent
             else -> Quality.Consensus
         }
-        return PairRate(median, per, spread, quality, use.maxOf { it.fetchedAt })
+        // The time shown is when the newest numbers were set, not merely when they were downloaded.
+        return PairRate(median, per, spread, quality, minOf(newest, use.maxOf { it.fetchedAt }))
     }
 }

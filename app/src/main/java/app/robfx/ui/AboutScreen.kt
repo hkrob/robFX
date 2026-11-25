@@ -49,7 +49,7 @@ interface AboutActions {
 }
 
 private val features = listOf(
-    "Rates cross-checked across three independent sources, with a warning when they disagree",
+    "Rates cross-checked across four independent sources, one of them live through the day, with a warning when they disagree",
     "Charts from one week to five years, and alerts when a rate reaches your target",
     "Unit price: find the better deal between sizes, shops and currencies",
     "Home-screen widgets you can set up one by one",

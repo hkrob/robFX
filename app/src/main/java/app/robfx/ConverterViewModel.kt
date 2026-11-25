@@ -100,7 +100,22 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
     private var pendingFrom: String? = null
 
     private val _history = MutableStateFlow(HistoryState())
-    val history: StateFlow<HistoryState> = _history
+    private val pairNow = combine(c.rates.snapshot, settings.map { it.from to it.to }.distinctUntilChanged()) { _, (f, t) -> c.rates.pair(f, t) }
+
+    /**
+     * The chart's series ends at the live rate. Daily history stops at the last published day, so without this the chart
+     * and its "change" disagreed with the rate printed just above it whenever the market had moved since.
+     */
+    val history: StateFlow<HistoryState> = combine(_history, pairNow) { h, p ->
+        val last = h.points.lastOrNull()
+        if (p == null || last == null) return@combine h
+        val today = java.time.Instant.ofEpochMilli(p.updatedAt).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+        when {
+            today > last.date -> h.copy(points = h.points + HistoryPoint(today, p.rate))
+            today == last.date -> h.copy(points = h.points.dropLast(1) + HistoryPoint(today, p.rate))
+            else -> h
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, HistoryState())
 
     /** The live consensus rate for the pair on screen. Null only before any source has ever answered. */
     val pair: StateFlow<PairRate?> = combine(c.rates.snapshot, settings.map { it.from to it.to }.distinctUntilChanged()) { _, (f, t) ->

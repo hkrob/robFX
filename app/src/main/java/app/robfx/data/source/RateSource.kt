@@ -49,7 +49,10 @@ class FrankfurterSource(private val http: Http, private val clock: () -> Long = 
     override suspend fun latest(): RateTable {
         val o = json.parseToJsonElement(http.get("$base/latest?base=USD")).jsonObject
         val rates = o.getValue("rates").jsonObject.numbers(upper = true) + ("USD" to 1.0)
-        return RateTable(name, clock(), o["date"]?.jsonPrimitive?.content, rates)
+        val date = o["date"]?.jsonPrimitive?.content
+        // Reference rates are set at 14:15 CET and published around 16:00; 15:00 UTC is close enough all year round.
+        val at = date?.let { runCatching { LocalDate.parse(it).atTime(15, 0).toInstant(java.time.ZoneOffset.UTC).toEpochMilli() }.getOrNull() }
+        return RateTable(name, clock(), date, rates, at?.let { minOf(it, clock()) })
     }
 
     override suspend fun history(from: String, to: String, start: LocalDate, end: LocalDate): List<HistoryPoint>? {
@@ -71,9 +74,10 @@ class FrankfurterSource(private val http: Http, private val clock: () -> Long = 
 class FawazSource(private val http: Http, private val clock: () -> Long = System::currentTimeMillis) : RateSource {
     override val name = "Currency-API"
 
+    // The project's own mirror first: jsDelivr caches "@latest" for up to a day and was seen serving yesterday's rates.
     private fun urls(version: String, code: String) = listOf(
-        "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@$version/v1/currencies/${code.lowercase()}.min.json",
         "https://$version.currency-api.pages.dev/v1/currencies/${code.lowercase()}.min.json",
+        "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@$version/v1/currencies/${code.lowercase()}.min.json",
     )
 
     private suspend fun fetch(version: String, code: String): JsonObject {
@@ -92,7 +96,10 @@ class FawazSource(private val http: Http, private val clock: () -> Long = System
     override suspend fun latest(): RateTable {
         val o = fetch("latest", "usd")
         val rates = o.getValue("usd").jsonObject.numbers(upper = true) + ("USD" to 1.0)
-        return RateTable(name, clock(), o["date"]?.jsonPrimitive?.content, rates)
+        val date = o["date"]?.jsonPrimitive?.content
+        // Dated by day only; taking the start of that day keeps it from looking fresher than it may be.
+        val at = date?.let { runCatching { LocalDate.parse(it).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli() }.getOrNull() }
+        return RateTable(name, clock(), date, rates, at?.let { minOf(it, clock()) })
     }
 
     /**
@@ -133,6 +140,29 @@ class ErApiSource(private val http: Http, private val clock: () -> Long = System
         val o = json.parseToJsonElement(http.get("https://open.er-api.com/v6/latest/USD")).jsonObject
         require(o["result"]?.jsonPrimitive?.content == "success") { "open.er-api result=${o["result"]}" }
         val rates = o.getValue("rates").jsonObject.numbers(upper = true) + ("USD" to 1.0)
-        return RateTable(name, clock(), o["time_last_update_utc"]?.jsonPrimitive?.content, rates)
+        val at = o["time_last_update_unix"]?.jsonPrimitive?.content?.toLongOrNull()?.let { it * 1000 }
+        return RateTable(name, clock(), o["time_last_update_utc"]?.jsonPrimitive?.content, rates, at?.let { minOf(it, clock()) })
+    }
+}
+
+/**
+ * Coinbase's public exchange-rate endpoint: no key, ~170 fiat currencies, refreshed through the day. The only source
+ * here that follows the market intraday, so it is what keeps the daily feeds honest when a currency moves.
+ */
+class CoinbaseSource(private val http: Http, private val clock: () -> Long = System::currentTimeMillis) : RateSource {
+    override val name = "Coinbase"
+
+    override suspend fun latest(): RateTable {
+        val o = json.parseToJsonElement(http.get("https://api.coinbase.com/v2/exchange-rates?currency=USD")).jsonObject
+        val raw = o.getValue("data").jsonObject.getValue("rates").jsonObject
+        // Values arrive as strings; numbers() keeps only real currencies, which drops the crypto in the same list.
+        val rates = buildMap {
+            for ((k, v) in raw) {
+                val d = (v as? JsonPrimitive)?.content?.toDoubleOrNull() ?: continue
+                if (k in Currencies.codes && d > 0) put(k, d)
+            }
+        } + ("USD" to 1.0)
+        require(rates.size > 20) { "Coinbase returned ${rates.size} currencies" }
+        return RateTable(name, clock(), null, rates)
     }
 }

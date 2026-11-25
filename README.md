@@ -21,7 +21,7 @@ Clean, sharp currency converter for Android (Compose, Material 3, compile and ta
 
 <sub>Screenshots are headless renders from the test suite (sample data, not live rates); regenerate with the command under Build.</sub>
 
-- Rates: median of Frankfurter (ECB), fawazahmed0 currency-api and open.er-api.com, queried in parallel; status pill warns when sources differ >0.5%.
+- Rates: median of Frankfurter (ECB), fawazahmed0 currency-api, open.er-api.com and Coinbase (intraday), queried in parallel. Sources whose data is 18h+ behind the freshest are left out; the status pill warns when the rest differ >0.5%.
 - Charts: Frankfurter time series, currency-api dated snapshots as fallback. Scrub by dragging.
 - Unit price: compare shop items by price per 100 g / kg / lb / L / fl oz / m / each (weight, volume, length, count), with multipack quantities, prices in any currency converted to your home currency, recent comparisons, optional names for each item ("Coles", "Woolworths") so you can compare the same product across shops, and optional tags ("Pasta", "Milk") that are kept in history and filterable.
 - Calculator keypad with + - × ÷, widget, background rate alerts (~30 min), Auto/Light/Dark/AMOLED + Material You.
