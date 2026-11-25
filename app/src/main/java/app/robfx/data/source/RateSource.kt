@@ -146,6 +146,27 @@ class ErApiSource(private val http: Http, private val clock: () -> Long = System
 }
 
 /**
+ * Wise's public live rate, the one its site shows: mid-market, updated every minute, no key. It answers one pair per
+ * request, so it isn't a [RateSource]; each answer becomes a two-currency [RateTable] that votes only on that pair.
+ */
+class WiseQuotes(private val http: Http, private val clock: () -> Long = System::currentTimeMillis) {
+    val name = "Wise"
+
+    /** Null when Wise doesn't quote the pair (HTTP 400), so an exotic pair is simply left to the other sources. */
+    suspend fun quote(from: String, to: String): RateTable? {
+        val body = try {
+            http.get("https://wise.com/rates/live?source=$from&target=$to")
+        } catch (e: HttpStatusException) {
+            if (e.code == 400 || e.code == 404) return null else throw e
+        }
+        val o = json.parseToJsonElement(body).jsonObject
+        val v = o["value"]?.jsonPrimitive?.doubleOrNull?.takeIf { it > 0 } ?: return null
+        val at = o["time"]?.jsonPrimitive?.content?.toLongOrNull()
+        return RateTable(name, clock(), null, mapOf(from to 1.0, to to v), at?.let { minOf(it, clock()) })
+    }
+}
+
+/**
  * FloatRates: ~150 currencies, refreshed through the day (its file carries the time of the update), no key. Independent
  * of Coinbase, so a stale or broken intraday feed is outvoted rather than trusted.
  */

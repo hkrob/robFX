@@ -90,6 +90,14 @@ class ConsensusTest {
         assertTrue(Consensus.marketOpen(java.time.Instant.parse("2026-11-29T21:30:00Z").toEpochMilli()))
     }
 
+    @Test fun aPerPairQuoteVotesOnItsPairInEitherDirectionAndNowhereElse() {
+        val wise = RateTable("Wise", now, null, mapOf("AUD" to 1.0, "HKD" to 5.15), dataAt = now)
+        fun tab(name: String, audHkd: Double) = RateTable(name, now, null, mapOf("USD" to 1.0, "AUD" to 1.5, "HKD" to 1.5 * audHkd, "EUR" to 0.9))
+        val tables = listOf(tab("a", 5.14), tab("b", 5.16), wise)
+        assertEquals(1 / 5.15, Consensus.pair(tables, "HKD", "AUD", now)!!.perSource.getValue("Wise"), 1e-9)
+        assertEquals(setOf("a", "b"), Consensus.pair(tables, "USD", "EUR", now)!!.perSource.keys)
+    }
+
     @Test fun tablesWithoutADataTimeCountAsFetched() {
         val p = Consensus.pair(listOf(t("a", 7.80), t("b", 7.81), t("c", 7.82)), "USD", "HKD", now)!!
         assertEquals(3, p.perSource.size)

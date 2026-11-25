@@ -20,7 +20,13 @@ data class RateTable(
 }
 
 @Serializable
-data class Snapshot(val tables: Map<String, RateTable> = emptyMap())
+data class Snapshot(
+    val tables: Map<String, RateTable> = emptyMap(),
+    /** Per-pair quotes (Wise), keyed by the pair with its codes in alphabetical order so A/B and B/A share one entry. */
+    val quotes: Map<String, RateTable> = emptyMap(),
+)
+
+fun pairKey(a: String, b: String) = if (a < b) "$a/$b" else "$b/$a"
 
 /** Stale: nothing fetched for 12h. Delayed: fetched, but even the freshest numbers are hours old while markets trade. */
 enum class Quality { Consensus, Single, Divergent, Delayed, Stale }

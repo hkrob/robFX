@@ -133,6 +133,8 @@ class ConverterViewModel(app: Application, initial: Settings) : AndroidViewModel
         // At most every three hours on launch; the background worker covers the rest.
         viewModelScope.launch { if (System.currentTimeMillis() - c.settings.lastUpdateCheck() > 3 * 3_600_000L) c.updater.check() }
         viewModelScope.launch { watchlist.collect { loadSparks(it) } }
+        // A pair opened for the first time gets its Wise quote now rather than at the next scheduled refresh.
+        viewModelScope.launch { settings.map { it.from to it.to }.distinctUntilChanged().collect { (f, t) -> c.rates.refreshPair(f, t) } }
         viewModelScope.launch {
             combine(settings.map { it.from to it.to }.distinctUntilChanged(), settings.map { it.range }.distinctUntilChanged()) { p, r -> p to r }
                 .collect { (p, r) -> loadHistory(p.first, p.second, r) }

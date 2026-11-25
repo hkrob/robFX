@@ -3,6 +3,9 @@
 Newest first. Each "## version" section is used for that version's GitHub release notes
 and for "What's new" on the app's About tab, so write it for people, not for developers.
 
+## 1.9.3
+- Added Wise's live mid-market rate as a sixth source. It updates every minute and counts as one vote among several, for the pairs you use: the converter, Markets and your alerts.
+
 ## 1.9.2
 - Added FloatRates as a fifth source, so two sources follow the market through the day.
 - New amber "Delayed" status when even the newest rates are over 6 hours old while markets are open (not at weekends, when Friday's close is the latest rate).

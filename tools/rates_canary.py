@@ -88,11 +88,28 @@ for name, (fetch, live) in SOURCES.items():
     tables[name] = (rates, when, live)
     rows.append(f"{name:26} data {when:%Y-%m-%d %H:%M} UTC ({age_h:4.1f}h)  AUD/HKD {rates['HKD'] / rates['AUD']:.4f}")
 
+# Wise quotes one pair at a time, so it is compared pair by pair rather than merged into a table.
+wise = {}
+try:
+    for f, t in PAIRS:
+        w = get(f"https://wise.com/rates/live?source={f}&target={t}")
+        wise[(f, t)] = (float(w["value"]), dt.datetime.fromtimestamp(w["time"] / 1000, dt.timezone.utc))
+    wise_at = max(at for _, at in wise.values())
+    age_h = (now - wise_at).total_seconds() / 3600
+    if market_open(now) and age_h > 6:
+        problems.append(f"Wise: data is {age_h:.1f}h old (limit 6h)")
+    rows.append(f"{'Wise':26} data {wise_at:%Y-%m-%d %H:%M} UTC ({age_h:4.1f}h)  AUD/HKD {wise[('AUD', 'HKD')][0]:.4f}")
+except Exception as e:  # noqa: BLE001
+    problems.append(f"Wise: unreachable or unparseable ({type(e).__name__}: {e})")
+    wise = {}
+
 live = {n: t[0] for n, t in tables.items() if t[2]}
-if len(live) < 2:
+if len(live) + (1 if wise else 0) < 2:
     problems.append(f"only {len(live)} live source(s) answered: {sorted(live)}")
 for f, t in PAIRS:
     vals = {n: r[t] / r[f] for n, r in live.items() if r.get(f) and r.get(t)}
+    if (f, t) in wise:
+        vals["Wise"] = wise[(f, t)][0]
     if len(vals) >= 2:
         spread = (max(vals.values()) - min(vals.values())) / min(vals.values())
         if spread > 0.01:
